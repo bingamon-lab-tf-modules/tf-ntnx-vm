@@ -12,13 +12,13 @@ A description of the module goes here.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.9.0 |
-| <a name="requirement_nutanix"></a> [nutanix](#requirement\_nutanix) | 2.3.1 |
+| <a name="requirement_nutanix"></a> [nutanix](#requirement\_nutanix) | >= 2.4.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_nutanix"></a> [nutanix](#provider\_nutanix) | 2.3.1 |
+| <a name="provider_nutanix"></a> [nutanix](#provider\_nutanix) | 2.4.2 |
 
 ## Modules
 
@@ -28,8 +28,8 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [nutanix_images_v2.image](https://registry.terraform.io/providers/nutanix/nutanix/2.3.1/docs/resources/images_v2) | resource |
-| [nutanix_virtual_machine.vm](https://registry.terraform.io/providers/nutanix/nutanix/2.3.1/docs/resources/virtual_machine) | resource |
+| [nutanix_images_v2.image](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/images_v2) | resource |
+| [nutanix_virtual_machine.vm](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/virtual_machine) | resource |
 
 ## Inputs
 
