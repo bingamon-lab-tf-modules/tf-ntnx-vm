@@ -90,3 +90,39 @@ check "template_guest_os_actions_version_fields_coherent" {
     error_message = "Guest-OS 'initiate' actions should set version_id; 'complete' actions should set version_name and version_description."
   }
 }
+
+# Validate that every OVA defines a source variant (url, object-lite, or vm). The
+# provider requires a source block; this surfaces a clear message in plan output.
+check "ovas_have_source" {
+  assert {
+    condition = alltrue([
+      for k, v in var.ovas :
+      v.source.url_source != null || v.source.object_lite_source != null || v.source.vm_source != null
+    ])
+    error_message = "Each OVA should define a source (url_source, object_lite_source, or vm_source)."
+  }
+}
+
+# Validate that every OVA download references a resolvable OVA: either a key of
+# var.ovas (a module-created OVA) or a non-empty literal ext_id.
+check "ova_downloads_reference_resolvable_ova" {
+  assert {
+    condition = alltrue([
+      for k, v in var.ova_downloads :
+      contains(keys(var.ovas), v.ova) || (v.ova != null && v.ova != "")
+    ])
+    error_message = "Each OVA download should reference an ovas map key or a non-empty OVA ext_id."
+  }
+}
+
+# Validate that every OVA deployment references a resolvable OVA: either a key of
+# var.ovas (a module-created OVA) or a non-empty literal ext_id.
+check "ova_deployments_reference_resolvable_ova" {
+  assert {
+    condition = alltrue([
+      for k, v in var.ova_deployments :
+      contains(keys(var.ovas), v.ova) || (v.ova != null && v.ova != "")
+    ])
+    error_message = "Each OVA deployment should reference an ovas map key or a non-empty OVA ext_id."
+  }
+}

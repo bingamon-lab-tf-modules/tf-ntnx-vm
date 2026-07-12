@@ -135,6 +135,48 @@ output "template_deployments" {
 }
 
 ##################################################
+# OVA Outputs
+##################################################
+
+output "ovas" {
+  description = "Map of created OVA appliance images with their details."
+  value = {
+    for k, v in nutanix_ova_v2.ova : k => {
+      ext_id      = v.ext_id
+      name        = v.name
+      disk_format = v.disk_format
+      size_bytes  = v.size_bytes
+    }
+  }
+}
+
+output "ova_ids" {
+  description = "Map of OVA keys to their external IDs."
+  value       = { for k, v in nutanix_ova_v2.ova : k => v.ext_id }
+}
+
+output "ova_downloads" {
+  description = "Map of OVA export/download actions with their resolved OVA ext_id and the exported file path. NOTE: exports are one-shot actions; re-exporting requires a new map key."
+  value = {
+    for k, v in nutanix_ova_download_v2.ova_download : k => {
+      ova_ext_id    = v.ova_ext_id
+      ova_file_path = v.ova_file_path
+    }
+  }
+}
+
+output "ova_deployments" {
+  description = "Map of OVA VM deployments with their resolved source OVA ext_id and target cluster. NOTE: the deployed VMs are provider-side artifacts of the deploy action and are not tracked as VM resources here."
+  value = {
+    for k, v in nutanix_ova_vm_deploy_v2.ova_deployment : k => {
+      id             = v.id
+      ova_ext_id     = v.ext_id
+      cluster_ext_id = v.cluster_location_ext_id
+    }
+  }
+}
+
+##################################################
 # Data Lookup Outputs (populated when enable_data_lookups = true)
 ##################################################
 
@@ -158,6 +200,11 @@ output "existing_template_ext_ids" {
   value       = local.existing_template_ext_ids
 }
 
+output "existing_ova_ext_ids" {
+  description = "Map of existing OVA names to their external IDs (populated when enable_data_lookups = true)."
+  value       = local.existing_ova_ext_ids
+}
+
 ##################################################
 # Summary
 ##################################################
@@ -178,5 +225,8 @@ output "compute_summary" {
     total_templates                 = length(var.templates)
     total_template_deployments      = length(var.template_deployments)
     total_template_guest_os_actions = length(var.template_guest_os_actions)
+    total_ovas                      = length(var.ovas)
+    total_ova_downloads             = length(var.ova_downloads)
+    total_ova_deployments           = length(var.ova_deployments)
   }
 }

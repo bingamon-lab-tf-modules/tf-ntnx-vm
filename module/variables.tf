@@ -375,3 +375,153 @@ variable "template_guest_os_actions" {
     error_message = "template_guest_os_actions 'action' must be one of: initiate, complete, cancel."
   }
 }
+
+##################################################
+# OVAs (v2, provider 2.4.2)
+##################################################
+
+# OVA appliance images (nutanix_ova_v2, introduced 2.3.2). An OVA is imported
+# once from a URL, an object-store (object-lite) key, or captured from an
+# existing VM, and is a steady-state resource: the ova_downloads and
+# ova_deployments maps reference these OVAs by map key (resolved to ext_id) or by
+# a literal ext_id. This is a SEPARATE resource family from images_v2 -- OVAs are
+# whole-appliance bundles (VM config + disks), not standalone disk/ISO images.
+variable "ovas" {
+  description = "A map of OVA appliance images to manage in Nutanix (nutanix_ova_v2). Each OVA is imported once from a URL, an object-store key, or an existing VM. OVAs are a separate family from images_v2 (appliance bundles, not standalone disk/ISO images)."
+  type = map(object({
+    name = string
+    # Disk format the OVA is stored in (e.g. QCOW2, VMDK). Provider-validated.
+    disk_format = optional(string, null)
+    # Clusters the OVA is placed on, by external ID.
+    cluster_location_ext_ids = optional(list(string), [])
+
+    # Optional integrity checksum. Set sha1 and/or sha256 hex digests; each maps
+    # to the provider's ova_sha1_checksum / ova_sha256_checksum block.
+    checksum = optional(object({
+      sha1   = optional(string, null)
+      sha256 = optional(string, null)
+    }), null)
+
+    # Exactly one source variant must be set (validated below):
+    #   url_source         -- import from a URL (optional basic auth).
+    #   object_lite_source -- import from an object-store key.
+    #   vm_source          -- capture an existing VM (by ext_id) into an OVA.
+    source = object({
+      url_source = optional(object({
+        url                       = string
+        should_allow_insecure_url = optional(bool, false)
+        basic_auth = optional(object({
+          username = string
+          password = string
+        }), null)
+      }), null)
+      object_lite_source = optional(object({
+        key = string
+      }), null)
+      vm_source = optional(object({
+        vm_ext_id        = string
+        disk_file_format = string # e.g. QCOW2, VMDK
+      }), null)
+    })
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.ovas :
+      length([
+        for s in [v.source.url_source, v.source.object_lite_source, v.source.vm_source] : s if s != null
+      ]) == 1
+    ])
+    error_message = "Each ovas entry must set exactly one source variant: source.url_source, source.object_lite_source, or source.vm_source."
+  }
+}
+
+# OVA downloads (nutanix_ova_download_v2) are IMPERATIVE, one-shot EXPORT actions:
+# applying an entry exports/downloads the referenced OVA ONCE (surfacing the
+# resulting ova_file_path). Re-running the export requires a NEW map key; mutating
+# or destroying an existing entry does not re-run or reverse the export. Populate
+# this map only when actively exporting an OVA; leave it empty ({}) in steady
+# state.
+variable "ova_downloads" {
+  description = "A map of one-shot OVA export/download actions (nutanix_ova_download_v2). IMPERATIVE: each entry exports the referenced OVA once; re-exporting needs a NEW map key. Keep empty ({}) unless actively exporting an OVA."
+  type = map(object({
+    # OVA to export: a key of var.ovas (resolved to the module-created OVA's
+    # ext_id) or a literal ext_id of a pre-existing OVA.
+    ova = string
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.ova_downloads :
+      v.ova != null && v.ova != ""
+    ])
+    error_message = "Each ova_downloads entry must set 'ova' (an ovas map key or an OVA ext_id)."
+  }
+}
+
+# OVA VM deployments (nutanix_ova_vm_deploy_v2) deploy a VM FROM an OVA. The
+# deployed VM is a provider-side artifact -- it is NOT tracked as a
+# nutanix_virtual_machine_v2 resource in this module's state, so day-2 changes to
+# the VM itself happen outside this resource. Provider 2.4.2 added UPDATE support
+# for this resource: changing the override_vm_config attributes on an existing
+# entry updates the deployment in place (older providers required replacement).
+# The provider requires an override_vm_config with at least one NIC, so every
+# deployment entry must supply a subnet for its NIC.
+variable "ova_deployments" {
+  description = "A map of VM deployments from OVAs (nutanix_ova_vm_deploy_v2). The deployed VM is a provider-side artifact, NOT tracked as a virtual_machine resource here. Provider 2.4.2 supports in-place UPDATE of override_vm_config. Each entry requires at least one NIC (subnet)."
+  type = map(object({
+    # OVA to deploy from: a key of var.ovas (resolved to the module-created OVA's
+    # ext_id) or a literal ext_id of a pre-existing OVA.
+    ova = string
+    # Cluster to deploy into: a cluster name (resolved to ext_id when
+    # enable_data_lookups = true) or a literal cluster ext_id.
+    cluster = string
+
+    # override_vm_config: applied to the deployed VM (provider requires this
+    # block; UPDATE-capable in 2.4.2).
+    name                 = optional(string, null)
+    memory_size_mib      = optional(number, null) # converted to memory_size_bytes
+    num_sockets          = optional(number, null)
+    num_cores_per_socket = optional(number, null)
+    num_threads_per_core = optional(number, null)
+    power_state          = optional(string, null) # ON | OFF
+    category_ext_ids     = optional(list(string), [])
+
+    # At least one NIC is required by the provider. Subnet is referenced by
+    # external ID.
+    nics = list(object({
+      subnet_ext_id = string
+      nic_type      = optional(string, null)
+      vlan_mode     = optional(string, null)
+      is_connected  = optional(bool, null)
+      model         = optional(string, null)
+      mac_address   = optional(string, null)
+      ipv4 = optional(object({
+        should_assign_ip = optional(bool, null)
+        ip_address = optional(object({
+          value         = string
+          prefix_length = optional(number, null)
+        }), null)
+      }), null)
+    }))
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.ova_deployments :
+      v.power_state == null || contains(["ON", "OFF"], v.power_state)
+    ])
+    error_message = "ova_deployments 'power_state' must be one of: ON, OFF."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.ova_deployments :
+      length(v.nics) >= 1
+    ])
+    error_message = "Each ova_deployments entry must define at least one NIC (the provider requires a NIC on the deployed VM)."
+  }
+}

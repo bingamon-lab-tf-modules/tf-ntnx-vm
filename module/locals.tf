@@ -86,6 +86,12 @@ locals {
     t.template_name => t.ext_id
   }
 
+  # Existing OVAs (OVA name -> ext_id) from the gated data lookup.
+  existing_ova_ext_ids = {
+    for o in try(data.nutanix_ovas_v2.existing_ova[0].ovas, []) :
+    o.name => o.ext_id
+  }
+
   ##################################################
   # Templates (deployment / action -> template ext_id resolution)
   ##################################################
@@ -109,6 +115,31 @@ locals {
       contains(keys(var.templates), v.template)
       ? nutanix_template_v2.template[v.template].ext_id
       : v.template
+    )
+  }
+
+  ##################################################
+  # OVAs (download / deployment -> OVA ext_id resolution)
+  ##################################################
+
+  # Resolve each download's OVA reference to an ext_id. An `ova` is either a key
+  # of var.ovas (a module-created OVA, whose computed ext_id is used) or a literal
+  # ext_id of a pre-existing OVA. Module-created OVAs win.
+  ova_download_ova_ext_id = {
+    for k, v in var.ova_downloads : k => (
+      contains(keys(var.ovas), v.ova)
+      ? nutanix_ova_v2.ova[v.ova].ext_id
+      : v.ova
+    )
+  }
+
+  # Resolve each deployment's OVA reference to an ext_id, using the same
+  # module-created-OVA-first rule as downloads.
+  ova_deployment_ova_ext_id = {
+    for k, v in var.ova_deployments : k => (
+      contains(keys(var.ovas), v.ova)
+      ? nutanix_ova_v2.ova[v.ova].ext_id
+      : v.ova
     )
   }
 }

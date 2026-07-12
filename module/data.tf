@@ -31,6 +31,13 @@ data "nutanix_templates_v2" "existing_template" {
   count = var.enable_data_lookups ? 1 : 0
 }
 
+# Existing OVAs (OVA name -> ext_id). Lets consumers resolve a friendly OVA name
+# to the ext_id that download/deploy actions require, and lets deployments and
+# exports target OVAs that were created outside this module.
+data "nutanix_ovas_v2" "existing_ova" {
+  count = var.enable_data_lookups ? 1 : 0
+}
+
 ##################################################
 # Placement Policy Lookups (gated by enable_data_lookups)
 ##################################################
