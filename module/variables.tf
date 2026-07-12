@@ -525,3 +525,283 @@ variable "ova_deployments" {
     error_message = "Each ova_deployments entry must define at least one NIC (the provider requires a NIC on the deployed VM)."
   }
 }
+
+##################################################
+# Nutanix Guest Tools -- installation (v2, provider 2.4.2)
+##################################################
+
+# NGT installation (nutanix_ngt_installation_v2) is a DECLARATIVE, steady-state
+# resource: it installs and manages Nutanix Guest Tools on an existing VM and
+# reconciles is_enabled / capabilities on subsequent applies (unlike the
+# imperative vm_actions below). Guest OS credentials are NOT taken here -- they
+# live in the separate, sensitive var.ngt_installation_credentials so they never
+# transit YAML (see spec "Do NOT put guest OS credentials in YAML").
+#
+# Each entry's `vm` is either a key of var.virtual_machines (resolved to the
+# module-created VM's ext_id) or a literal VM ext_id of a pre-existing VM.
+variable "ngt_installations" {
+  description = "A map of declarative Nutanix Guest Tools installations (nutanix_ngt_installation_v2). DECLARATIVE/steady-state: is_enabled and capabilities reconcile on every apply. Each entry's `vm` is a virtual_machines map key or a VM ext_id. Guest credentials are supplied out-of-band via the sensitive var.ngt_installation_credentials, never in YAML."
+  type = map(object({
+    vm = string # key of virtual_machines (resolved to ext_id) or a VM ext_id
+    # NGT capabilities to enable. Allowed: SELF_SERVICE_RESTORE, VSS_SNAPSHOT.
+    capabilities = optional(list(string), [])
+    is_enabled   = optional(bool, null)
+    # Restart schedule applied after installing NGT (schedule_type is one of
+    # IMMEDIATE | LATER | SKIP; start_time is used with LATER).
+    reboot_preference = optional(object({
+      schedule_type = string
+      start_time    = optional(string, null)
+    }), null)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.ngt_installations :
+      v.vm != null && v.vm != ""
+    ])
+    error_message = "Each ngt_installations entry must set 'vm' (a virtual_machines map key or a VM ext_id)."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.ngt_installations :
+      alltrue([for c in v.capabilities : contains(["SELF_SERVICE_RESTORE", "VSS_SNAPSHOT"], c)])
+    ])
+    error_message = "ngt_installations capabilities must be a subset of: SELF_SERVICE_RESTORE, VSS_SNAPSHOT."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.ngt_installations :
+      v.reboot_preference == null || contains(["IMMEDIATE", "LATER", "SKIP"], v.reboot_preference.schedule_type)
+    ])
+    error_message = "ngt_installations reboot_preference.schedule_type must be one of: IMMEDIATE, LATER, SKIP."
+  }
+}
+
+# Guest OS credentials for NGT installation, keyed by the SAME key as
+# var.ngt_installations. Kept in a dedicated, sensitive variable so guest
+# passwords never appear in landing-zone YAML or in the ngt_installations map
+# (they are injected from a secret store at plan/apply time). An entry is
+# optional: NGT installation can proceed without a credential when the provider
+# does not require one for the target VM.
+variable "ngt_installation_credentials" {
+  description = "Sensitive guest OS credentials for NGT installation, keyed by the same key as ngt_installations. Supplied from a secret store, never from YAML."
+  type = map(object({
+    username = string
+    password = string
+  }))
+  default   = {}
+  sensitive = true
+}
+
+##################################################
+# VM day-2 ACTIONS (v2, provider 2.4.2) -- IMPERATIVE, one-shot
+##################################################
+
+# vm_actions groups the nine imperative VM day-2 action resources into per-action
+# sub-maps. READ THE ACTION LIFECYCLE CAVEATS BEFORE USE (see also the module
+# README section "Action resources -- read before use"):
+#
+#   1. Creating an entry EXECUTES the action ONCE; there is NO continuous
+#      reconciliation afterwards (unlike ngt_installations above).
+#   2. Re-executing an action requires a NEW/renamed map key (or a taint).
+#      Convention: operators trigger an action by ADDING a map entry; entries are
+#      append-only history -- prune old entries only with `state rm` awareness.
+#   3. Destroy does NOT undo the action: a clone is not deleted, a shut-down VM is
+#      not restarted, a reverted VM is not un-reverted.
+#   4. A populated map replans cleanly only because each resource stores its
+#      action result in state. NEVER wire these into always-applied YAML defaults
+#      -- every sub-map defaults to {} and must be explicitly operator-triggered.
+#   5. cdrom workaround: on the pinned stable provider 2.4.2, ISO eject can fail
+#      when the CD-ROM ext_id is null (fixed only in the banned 2.4.3-beta). Always
+#      set cdrom_operations[*].cdrom_ext_id explicitly for eject operations.
+#
+# Every entry's `vm` is a key of var.virtual_machines (resolved to the
+# module-created VM's ext_id) or a literal VM ext_id passthrough.
+variable "vm_actions" {
+  description = <<-EOT
+    Grouped, IMPERATIVE VM day-2 actions (one sub-map per action type). ONE-SHOT semantics:
+    creating an entry runs the action ONCE with NO reconciliation; re-trigger by adding a
+    NEW map key (append-only history), and destroy does NOT undo the action. Every sub-map
+    defaults to {} -- NEVER populate these from shared YAML defaults; they must be explicitly
+    operator-triggered per environment. Each entry's `vm` is a virtual_machines map key or a
+    VM ext_id. cdrom_operations eject: always set cdrom_ext_id explicitly (provider 2.4.2 ISO
+    eject fails on a null CD-ROM ext_id; the fix only exists in the banned 2.4.3-beta).
+  EOT
+  type = object({
+    # Clone a VM (nutanix_vm_clone_v2). `vm` is the SOURCE VM; the optional fields
+    # override the clone. The new VM's ext_id is surfaced in output.vm_actions.
+    clones = optional(map(object({
+      vm                   = string
+      name                 = optional(string, null)
+      memory_size_mib      = optional(number, null)
+      num_sockets          = optional(number, null)
+      num_cores_per_socket = optional(number, null)
+      num_threads_per_core = optional(number, null)
+    })), {})
+
+    # Update guest customization for the next boot (nutanix_vm_gc_update_v2).
+    gc_updates = optional(map(object({
+      vm                         = string
+      cloud_init_user_data       = optional(string, null)
+      cloud_init_metadata        = optional(string, null)
+      cloud_init_datasource_type = optional(string, null)
+      sysprep_install_type       = optional(string, null)
+      sysprep_unattend_xml       = optional(string, null)
+    })), {})
+
+    # Assign an IP to a NIC (nutanix_vm_network_device_assign_ip_v2). nic_ext_id
+    # is the NIC's runtime-assigned ext_id (see output.virtual_machine_nic_list).
+    nic_ip_assignments = optional(map(object({
+      vm            = string
+      nic_ext_id    = string
+      ip_address    = optional(string, null)
+      prefix_length = optional(number, null)
+    })), {})
+
+    # Migrate a NIC between subnets (nutanix_vm_network_device_migrate_v2).
+    # migrate_type is ASSIGN_IP or RELEASE_IP.
+    nic_migrations = optional(map(object({
+      vm            = string
+      nic_ext_id    = string
+      migrate_type  = string
+      subnet_ext_id = optional(string, null)
+      ip_address    = optional(string, null)
+      prefix_length = optional(number, null)
+    })), {})
+
+    # Insert/eject an ISO on a CD-ROM (nutanix_vm_cdrom_insert_eject_v2). action
+    # is insert|eject. cdrom_ext_id is the CD-ROM device ext_id and is REQUIRED --
+    # ALWAYS set it explicitly for eject (2.4.2 null-ext_id eject bug). For insert,
+    # set image_ext_id (and disk_size_bytes for the backing CD-ROM).
+    cdrom_operations = optional(map(object({
+      vm              = string
+      cdrom_ext_id    = string
+      action          = optional(string, null)
+      image_ext_id    = optional(string, null)
+      disk_size_bytes = optional(number, null)
+    })), {})
+
+    # Guest shutdown/reboot via NGT (nutanix_vm_shutdown_action_v2). action is
+    # shutdown|guest_shutdown|reboot|guest_reboot. The script-exec flags apply
+    # only to guest_shutdown/guest_reboot.
+    shutdowns = optional(map(object({
+      vm                            = string
+      action                        = string
+      should_enable_script_exec     = optional(bool, null)
+      should_fail_on_script_failure = optional(bool, null)
+    })), {})
+
+    # Revert a VM to a recovery point (nutanix_vm_revert_v2). recovery_point_ext_id
+    # is the VM recovery point external ID (see the nutanix_recovery_points_v2 data
+    # source to look one up).
+    reverts = optional(map(object({
+      vm                    = string
+      recovery_point_ext_id = string
+    })), {})
+
+    # Insert the NGT ISO (nutanix_ngt_insert_iso_v2). action is insert|eject;
+    # capabilities is a subset of SELF_SERVICE_RESTORE, VSS_SNAPSHOT;
+    # is_config_only updates existing NGT config instead of a fresh install.
+    ngt_iso_inserts = optional(map(object({
+      vm             = string
+      action         = optional(string, null)
+      capabilities   = optional(list(string), [])
+      is_config_only = optional(bool, null)
+    })), {})
+
+    # Upgrade NGT (nutanix_ngt_upgrade_v2). reboot_preference.schedule_type is
+    # IMMEDIATE|LATER|SKIP (start_time used with LATER).
+    ngt_upgrades = optional(map(object({
+      vm = string
+      reboot_preference = optional(object({
+        schedule_type = string
+        start_time    = optional(string, null)
+      }), null)
+    })), {})
+  })
+  default = {}
+
+  # Every action entry must name a VM.
+  validation {
+    condition = alltrue(concat(
+      [for k, v in var.vm_actions.clones : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.gc_updates : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.nic_ip_assignments : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.nic_migrations : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.cdrom_operations : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.shutdowns : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.reverts : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.ngt_iso_inserts : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.ngt_upgrades : v.vm != null && v.vm != ""],
+    ))
+    error_message = "Every vm_actions entry (across all sub-maps) must set a non-empty 'vm' (a virtual_machines map key or a VM ext_id)."
+  }
+
+  # Shutdown action must be a recognised guest power-state transition.
+  validation {
+    condition = alltrue([
+      for k, v in var.vm_actions.shutdowns :
+      contains(["shutdown", "guest_shutdown", "reboot", "guest_reboot"], v.action)
+    ])
+    error_message = "vm_actions.shutdowns 'action' must be one of: shutdown, guest_shutdown, reboot, guest_reboot."
+  }
+
+  # NIC migration type must be ASSIGN_IP or RELEASE_IP.
+  validation {
+    condition = alltrue([
+      for k, v in var.vm_actions.nic_migrations :
+      contains(["ASSIGN_IP", "RELEASE_IP"], v.migrate_type)
+    ])
+    error_message = "vm_actions.nic_migrations 'migrate_type' must be one of: ASSIGN_IP, RELEASE_IP."
+  }
+
+  # CD-ROM operation action, when set, must be insert or eject.
+  validation {
+    condition = alltrue([
+      for k, v in var.vm_actions.cdrom_operations :
+      v.action == null || contains(["insert", "eject"], v.action)
+    ])
+    error_message = "vm_actions.cdrom_operations 'action' must be one of: insert, eject."
+  }
+
+  # Every CD-ROM operation must name the CD-ROM device ext_id (mandatory in 2.4.2,
+  # and the eject-bug workaround for a null CD-ROM ext_id).
+  validation {
+    condition = alltrue([
+      for k, v in var.vm_actions.cdrom_operations :
+      v.cdrom_ext_id != null && v.cdrom_ext_id != ""
+    ])
+    error_message = "Each vm_actions.cdrom_operations entry must set cdrom_ext_id explicitly (required by 2.4.2 and the ISO-eject null-ext_id workaround)."
+  }
+
+  # NGT ISO insert action, when set, must be insert or eject; capabilities subset.
+  validation {
+    condition = alltrue([
+      for k, v in var.vm_actions.ngt_iso_inserts :
+      (v.action == null || contains(["insert", "eject"], v.action)) &&
+      alltrue([for c in v.capabilities : contains(["SELF_SERVICE_RESTORE", "VSS_SNAPSHOT"], c)])
+    ])
+    error_message = "vm_actions.ngt_iso_inserts 'action' must be insert|eject and capabilities a subset of SELF_SERVICE_RESTORE, VSS_SNAPSHOT."
+  }
+
+  # NGT upgrade reboot schedule_type, when set, must be a recognised value.
+  validation {
+    condition = alltrue([
+      for k, v in var.vm_actions.ngt_upgrades :
+      v.reboot_preference == null || contains(["IMMEDIATE", "LATER", "SKIP"], v.reboot_preference.schedule_type)
+    ])
+    error_message = "vm_actions.ngt_upgrades reboot_preference.schedule_type must be one of: IMMEDIATE, LATER, SKIP."
+  }
+
+  # Every revert must name a recovery point.
+  validation {
+    condition = alltrue([
+      for k, v in var.vm_actions.reverts :
+      v.recovery_point_ext_id != null && v.recovery_point_ext_id != ""
+    ])
+    error_message = "Each vm_actions.reverts entry must set recovery_point_ext_id (the VM recovery point external ID)."
+  }
+}

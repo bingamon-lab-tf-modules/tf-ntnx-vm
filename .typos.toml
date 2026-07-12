@@ -20,6 +20,8 @@ aci = "aci"
 analyze = "analyze"
 authorize = "authorize"
 authorized = "authorized"
+# Provider attribute name is misspelled upstream (nutanix/nutanix); must match it verbatim.
+capablities = "capablities"
 center = "center"
 cros = "cros"
 customization = "customization"

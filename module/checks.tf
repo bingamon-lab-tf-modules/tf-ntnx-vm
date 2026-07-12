@@ -126,3 +126,45 @@ check "ova_deployments_reference_resolvable_ova" {
     error_message = "Each OVA deployment should reference an ovas map key or a non-empty OVA ext_id."
   }
 }
+
+# Validate that every NGT installation names a VM (a virtual_machines map key or
+# a VM ext_id).
+check "ngt_installations_reference_vm" {
+  assert {
+    condition = alltrue([
+      for k, v in var.ngt_installations :
+      v.vm != null && v.vm != ""
+    ])
+    error_message = "Each NGT installation should name a VM (a virtual_machines map key or a VM ext_id)."
+  }
+}
+
+# Validate that every vm_actions entry (across all sub-maps) names a VM. Actions
+# are meaningless without a target VM; this surfaces a clear message in plan.
+check "vm_actions_reference_vm" {
+  assert {
+    condition = alltrue(concat(
+      [for k, v in var.vm_actions.clones : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.gc_updates : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.nic_ip_assignments : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.nic_migrations : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.cdrom_operations : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.shutdowns : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.reverts : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.ngt_iso_inserts : v.vm != null && v.vm != ""],
+      [for k, v in var.vm_actions.ngt_upgrades : v.vm != null && v.vm != ""],
+    ))
+    error_message = "Every vm_actions entry should name a VM (a virtual_machines map key or a VM ext_id)."
+  }
+}
+
+# Validate that every revert action names a recovery point to revert to.
+check "vm_reverts_reference_recovery_point" {
+  assert {
+    condition = alltrue([
+      for k, v in var.vm_actions.reverts :
+      v.recovery_point_ext_id != null && v.recovery_point_ext_id != ""
+    ])
+    error_message = "Each vm_actions revert should name a recovery point (recovery_point_ext_id)."
+  }
+}

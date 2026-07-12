@@ -177,6 +177,97 @@ output "ova_deployments" {
 }
 
 ##################################################
+# NGT Installation Outputs
+##################################################
+
+output "ngt_installations" {
+  description = "Map of managed NGT installations with the target VM ext_id and the NGT state reported by the provider."
+  value = {
+    for k, v in nutanix_ngt_installation_v2.ngt_installation : k => {
+      vm_ext_id    = v.ext_id
+      is_enabled   = v.is_enabled
+      is_installed = v.is_installed
+      is_reachable = v.is_reachable
+      version      = v.version
+      capabilities = v.capablities
+    }
+  }
+}
+
+##################################################
+# VM Day-2 Action Outputs
+##################################################
+
+# Convenience map: clone key -> the NEW cloned VM's ext_id (a provider-side
+# artifact; the cloned VM is NOT tracked as a virtual_machine resource here).
+output "vm_clone_ids" {
+  description = "Map of vm_actions.clones keys to the external IDs of the newly cloned VMs (provider-side artifacts, not tracked as VM resources)."
+  value       = { for k, v in nutanix_vm_clone_v2.clone : k => v.ext_id }
+}
+
+# Grouped result metadata for every action sub-map. NOTE: these are one-shot
+# action results stored in state; see the var.vm_actions description for the
+# lifecycle caveats (no reconciliation, re-trigger via a new key, destroy does
+# not undo the action).
+output "vm_actions" {
+  description = "Grouped result metadata for the imperative VM day-2 actions (one-shot; see var.vm_actions caveats). clones surface the new VM ext_id; reverts surface the revert status."
+  value = {
+    clones = {
+      for k, v in nutanix_vm_clone_v2.clone : k => {
+        source_vm_ext_id = v.vm_ext_id
+        new_vm_ext_id    = v.ext_id
+        name             = v.name
+      }
+    }
+    gc_updates = {
+      for k, v in nutanix_vm_gc_update_v2.gc_update : k => { vm_ext_id = v.ext_id }
+    }
+    nic_ip_assignments = {
+      for k, v in nutanix_vm_network_device_assign_ip_v2.nic_ip_assignment : k => {
+        vm_ext_id  = v.vm_ext_id
+        nic_ext_id = v.ext_id
+      }
+    }
+    nic_migrations = {
+      for k, v in nutanix_vm_network_device_migrate_v2.nic_migration : k => {
+        vm_ext_id    = v.vm_ext_id
+        nic_ext_id   = v.ext_id
+        migrate_type = v.migrate_type
+      }
+    }
+    cdrom_operations = {
+      for k, v in nutanix_vm_cdrom_insert_eject_v2.cdrom_operation : k => {
+        vm_ext_id    = v.vm_ext_id
+        cdrom_ext_id = v.ext_id
+        action       = v.action
+      }
+    }
+    shutdowns = {
+      for k, v in nutanix_vm_shutdown_action_v2.shutdown : k => {
+        vm_ext_id = v.ext_id
+        action    = v.action
+      }
+    }
+    reverts = {
+      for k, v in nutanix_vm_revert_v2.revert : k => {
+        vm_ext_id             = v.ext_id
+        recovery_point_ext_id = v.vm_recovery_point_ext_id
+        status                = v.status
+      }
+    }
+    ngt_iso_inserts = {
+      for k, v in nutanix_ngt_insert_iso_v2.ngt_iso_insert : k => {
+        vm_ext_id = v.ext_id
+        action    = v.action
+      }
+    }
+    ngt_upgrades = {
+      for k, v in nutanix_ngt_upgrade_v2.ngt_upgrade : k => { vm_ext_id = v.ext_id }
+    }
+  }
+}
+
+##################################################
 # Data Lookup Outputs (populated when enable_data_lookups = true)
 ##################################################
 
@@ -205,6 +296,19 @@ output "existing_ova_ext_ids" {
   value       = local.existing_ova_ext_ids
 }
 
+output "ngt_configurations" {
+  description = "Map of ngt_installations keys to the NGT configuration reported by Prism Central for each installation's VM (populated when enable_data_lookups = true)."
+  value = {
+    for k, v in data.nutanix_ngt_configuration_v2.ngt_configuration : k => {
+      is_enabled   = v.is_enabled
+      is_installed = v.is_installed
+      is_reachable = v.is_reachable
+      version      = v.version
+      capabilities = v.capablities
+    }
+  }
+}
+
 ##################################################
 # Summary
 ##################################################
@@ -228,5 +332,15 @@ output "compute_summary" {
     total_ovas                      = length(var.ovas)
     total_ova_downloads             = length(var.ova_downloads)
     total_ova_deployments           = length(var.ova_deployments)
+    total_ngt_installations         = length(var.ngt_installations)
+    total_vm_clones                 = length(var.vm_actions.clones)
+    total_vm_gc_updates             = length(var.vm_actions.gc_updates)
+    total_vm_nic_ip_assignments     = length(var.vm_actions.nic_ip_assignments)
+    total_vm_nic_migrations         = length(var.vm_actions.nic_migrations)
+    total_vm_cdrom_operations       = length(var.vm_actions.cdrom_operations)
+    total_vm_shutdowns              = length(var.vm_actions.shutdowns)
+    total_vm_reverts                = length(var.vm_actions.reverts)
+    total_ngt_iso_inserts           = length(var.vm_actions.ngt_iso_inserts)
+    total_ngt_upgrades              = length(var.vm_actions.ngt_upgrades)
   }
 }

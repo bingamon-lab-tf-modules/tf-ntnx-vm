@@ -61,3 +61,19 @@ data "nutanix_vm_host_affinity_policies_v2" "host_affinity_policy" {
 data "nutanix_vm_anti_affinity_policies_v2" "anti_affinity_policy" {
   count = var.enable_data_lookups ? 1 : 0
 }
+
+##################################################
+# NGT Configuration Lookups (gated by enable_data_lookups)
+##################################################
+
+# Read-only NGT configuration for each managed installation's VM. Unlike the
+# list-everything lookups above, nutanix_ngt_configuration_v2 requires a VM
+# ext_id, so this is keyed per ngt_installations entry and only read when
+# var.enable_data_lookups = true (for_each collapses to {} otherwise, so
+# plan/validate/test need no live Prism Central connection). Surfaced via
+# output.ngt_configurations so consumers can see reported NGT state.
+data "nutanix_ngt_configuration_v2" "ngt_configuration" {
+  for_each = var.enable_data_lookups ? local.ngt_installation_vm_ext_id : {}
+
+  ext_id = each.value
+}

@@ -142,4 +142,92 @@ locals {
       : v.ova
     )
   }
+
+  ##################################################
+  # Day-2 actions (VM reference -> ext_id resolution)
+  ##################################################
+
+  # Every NGT installation and vm_actions entry names a VM by `vm`, which is
+  # either a key of var.virtual_machines (resolved to the module-created VM's
+  # computed ext_id) or a literal ext_id of a pre-existing VM. Module-created
+  # VMs win. These per-map resolution locals keep main_actions.tf declarative.
+  ngt_installation_vm_ext_id = {
+    for k, v in var.ngt_installations : k => (
+      contains(keys(var.virtual_machines), v.vm)
+      ? nutanix_virtual_machine_v2.vm[v.vm].ext_id
+      : v.vm
+    )
+  }
+
+  clone_vm_ext_id = {
+    for k, v in var.vm_actions.clones : k => (
+      contains(keys(var.virtual_machines), v.vm)
+      ? nutanix_virtual_machine_v2.vm[v.vm].ext_id
+      : v.vm
+    )
+  }
+
+  gc_update_vm_ext_id = {
+    for k, v in var.vm_actions.gc_updates : k => (
+      contains(keys(var.virtual_machines), v.vm)
+      ? nutanix_virtual_machine_v2.vm[v.vm].ext_id
+      : v.vm
+    )
+  }
+
+  nic_ip_assignment_vm_ext_id = {
+    for k, v in var.vm_actions.nic_ip_assignments : k => (
+      contains(keys(var.virtual_machines), v.vm)
+      ? nutanix_virtual_machine_v2.vm[v.vm].ext_id
+      : v.vm
+    )
+  }
+
+  nic_migration_vm_ext_id = {
+    for k, v in var.vm_actions.nic_migrations : k => (
+      contains(keys(var.virtual_machines), v.vm)
+      ? nutanix_virtual_machine_v2.vm[v.vm].ext_id
+      : v.vm
+    )
+  }
+
+  cdrom_operation_vm_ext_id = {
+    for k, v in var.vm_actions.cdrom_operations : k => (
+      contains(keys(var.virtual_machines), v.vm)
+      ? nutanix_virtual_machine_v2.vm[v.vm].ext_id
+      : v.vm
+    )
+  }
+
+  shutdown_vm_ext_id = {
+    for k, v in var.vm_actions.shutdowns : k => (
+      contains(keys(var.virtual_machines), v.vm)
+      ? nutanix_virtual_machine_v2.vm[v.vm].ext_id
+      : v.vm
+    )
+  }
+
+  revert_vm_ext_id = {
+    for k, v in var.vm_actions.reverts : k => (
+      contains(keys(var.virtual_machines), v.vm)
+      ? nutanix_virtual_machine_v2.vm[v.vm].ext_id
+      : v.vm
+    )
+  }
+
+  ngt_iso_insert_vm_ext_id = {
+    for k, v in var.vm_actions.ngt_iso_inserts : k => (
+      contains(keys(var.virtual_machines), v.vm)
+      ? nutanix_virtual_machine_v2.vm[v.vm].ext_id
+      : v.vm
+    )
+  }
+
+  ngt_upgrade_vm_ext_id = {
+    for k, v in var.vm_actions.ngt_upgrades : k => (
+      contains(keys(var.virtual_machines), v.vm)
+      ? nutanix_virtual_machine_v2.vm[v.vm].ext_id
+      : v.vm
+    )
+  }
 }
