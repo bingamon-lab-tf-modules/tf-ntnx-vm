@@ -138,30 +138,16 @@ resource "nutanix_virtual_machine" "vm" {
       disk_size_bytes = disk_list.value.disk_size_bytes
       disk_size_mib   = disk_list.value.disk_size_mib
 
-      dynamic "device_properties" {
-        for_each = disk_list.value.device_properties != null ? [disk_list.value.device_properties] : []
-        content {
-          device_type = device_properties.value.device_type
+      device_properties {
+        device_type = try(disk_list.value.device_properties.device_type, "DISK")
 
-          # TODO: disk_address is unsupported in nutanix provider v2.3.1 - re-evaluate on provider upgrade
-          # dynamic "disk_address" {
-          #   for_each = device_properties.value.disk_address != null ? [device_properties.value.disk_address] : []
-          #   content {
-          #     device_index = disk_address.value.device_index
-          #     adapter_type = disk_address.value.adapter_type
-          #   }
-          # }
+        disk_address = {
+          device_index = try(disk_list.value.device_properties.disk_address.device_index, 0)
+          adapter_type = try(disk_list.value.device_properties.disk_address.adapter_type, "SCSI")
         }
       }
 
-      # TODO: data_source_reference is unsupported in nutanix provider v2.3.1 - re-evaluate on provider upgrade
-      # dynamic "data_source_reference" {
-      #   for_each = disk_list.value.data_source_reference != null ? [disk_list.value.data_source_reference] : []
-      #   content {
-      #     kind = data_source_reference.value.kind
-      #     uuid = data_source_reference.value.uuid
-      #   }
-      # }
+      data_source_reference = disk_list.value.data_source_reference
 
       dynamic "storage_config" {
         for_each = disk_list.value.storage_config != null ? [disk_list.value.storage_config] : []
@@ -203,14 +189,9 @@ resource "nutanix_virtual_machine" "vm" {
   guest_customization_is_overridable               = each.value.guest_customization_is_overridable
   guest_customization_sysprep_custom_key_values    = each.value.guest_customization_sysprep_custom_key_values
 
-  # TODO: guest_customization_sysprep block is unsupported in nutanix provider v2.3.1 - re-evaluate on provider upgrade
-  # dynamic "guest_customization_sysprep" {
-  #   for_each = each.value.guest_customization_sysprep != null ? [each.value.guest_customization_sysprep] : []
-  #   content {
-  #     install_type = guest_customization_sysprep.value.install_type
-  #     unattend_xml = guest_customization_sysprep.value.unattend_xml
-  #   }
-  # }
+  # Guest customization - sysprep (attribute, not block). The typed object
+  # variable is converted to the provider's map(string) attribute in locals.tf.
+  guest_customization_sysprep = local.vm_sysprep[each.key]
 
   # TODO: project_reference block is unsupported in nutanix provider v2.3.1 - re-evaluate on provider upgrade
   # dynamic "project_reference" {

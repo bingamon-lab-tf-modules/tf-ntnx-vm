@@ -46,6 +46,7 @@ No modules.
 | <a name="output_image_ids"></a> [image\_ids](#output\_image\_ids) | Map of image keys to their external IDs. |
 | <a name="output_images"></a> [images](#output\_images) | Map of created images with their details. |
 | <a name="output_virtual_machine_ids"></a> [virtual\_machine\_ids](#output\_virtual\_machine\_ids) | Map of VM keys to their UUIDs. |
+| <a name="output_virtual_machine_nic_ips"></a> [virtual\_machine\_nic\_ips](#output\_virtual\_machine\_nic\_ips) | Map of virtual machine keys to their NIC IP addresses. |
 | <a name="output_virtual_machine_nic_list"></a> [virtual\_machine\_nic\_list](#output\_virtual\_machine\_nic\_list) | Map of VM keys to their NIC list status (includes assigned IPs). |
 | <a name="output_virtual_machines"></a> [virtual\_machines](#output\_virtual\_machines) | Map of created VMs with their details. |
 <!-- END_TF_DOCS -->

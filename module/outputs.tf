@@ -52,6 +52,17 @@ output "virtual_machine_nic_list" {
   }
 }
 
+output "virtual_machine_nic_ips" {
+  description = "Map of virtual machine keys to their NIC IP addresses."
+  value = {
+    for k, v in nutanix_virtual_machine.vm : k => flatten([
+      for nic in v.nic_list_status : [
+        for ip in nic.ip_endpoint_list : ip.ip
+      ]
+    ])
+  }
+}
+
 ##################################################
 # Summary
 ##################################################
@@ -66,5 +77,6 @@ output "compute_summary" {
     powered_on_vms         = length(local.powered_on_vms)
     powered_off_vms        = length(local.powered_off_vms)
     gpu_vms                = length(local.gpu_vms)
+    cloud_init_vms         = length(local.cloud_init_vms)
   }
 }
