@@ -152,6 +152,7 @@ No modules.
 | <a name="output_images"></a> [images](#output\_images) | Map of created images with their details. |
 | <a name="output_ngt_configurations"></a> [ngt\_configurations](#output\_ngt\_configurations) | Map of ngt\_installations keys to the NGT configuration reported by Prism Central for each installation's VM (populated when enable\_data\_lookups = true). |
 | <a name="output_ngt_installations"></a> [ngt\_installations](#output\_ngt\_installations) | Map of managed NGT installations with the target VM ext\_id and the NGT state reported by the provider. |
+| <a name="output_outputs"></a> [outputs](#output\_outputs) | Aggregate of all module outputs (spec §7.6 contract, consumed by the landing zone as module.<x>.outputs). |
 | <a name="output_ova_deployments"></a> [ova\_deployments](#output\_ova\_deployments) | Map of OVA VM deployments with their resolved source OVA ext\_id and target cluster. NOTE: the deployed VMs are provider-side artifacts of the deploy action and are not tracked as VM resources here. |
 | <a name="output_ova_downloads"></a> [ova\_downloads](#output\_ova\_downloads) | Map of OVA export/download actions with their resolved OVA ext\_id and the exported file path. NOTE: exports are one-shot actions; re-exporting requires a new map key. |
 | <a name="output_ova_ids"></a> [ova\_ids](#output\_ova\_ids) | Map of OVA keys to their external IDs. |
