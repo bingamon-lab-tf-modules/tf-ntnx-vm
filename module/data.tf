@@ -1,12 +1,28 @@
 ##################################################
-# Data Sources for Compute
+# Compute Inventory Lookups (gated by enable_data_lookups)
 ##################################################
 
-# Existing images can be looked up via the v2 data source when needed:
-# data "nutanix_images_v2" "existing_images" {}
+# Read-only lookups of existing compute inventory in Prism Central. Gated by
+# var.enable_data_lookups (default false) because these list-everything reads are
+# expensive and plan/validate/test must work without a live Prism Central
+# connection (spec §7.4). Consumed by locals.tf to build name -> ext_id maps that
+# are surfaced as outputs, so consumers can resolve friendly names to the
+# external IDs the v2 schema requires.
 
-# Existing clusters can be looked up via the v2 data source when needed:
-# data "nutanix_clusters_v2" "clusters" {}
+# Existing clusters (cluster name -> ext_id).
+data "nutanix_clusters_v2" "existing_cluster" {
+  count = var.enable_data_lookups ? 1 : 0
+}
+
+# Existing images (image name -> ext_id).
+data "nutanix_images_v2" "existing_image" {
+  count = var.enable_data_lookups ? 1 : 0
+}
+
+# Existing virtual machines (VM name -> ext_id).
+data "nutanix_virtual_machines_v2" "existing_vm" {
+  count = var.enable_data_lookups ? 1 : 0
+}
 
 ##################################################
 # Placement Policy Lookups (gated by enable_data_lookups)

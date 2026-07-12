@@ -196,10 +196,11 @@ variable "virtual_machines" {
 # Data Lookups
 ##################################################
 
-# Read-only lookups of existing categories and affinity policies in Prism
-# Central. Disabled by default so plan/validate/test needs no live PC connection.
+# Read-only lookups of existing Prism Central inventory (clusters, images, VMs,
+# categories, affinity policies). Disabled by default so plan/validate/test needs
+# no live PC connection and the list-everything reads are not run needlessly.
 variable "enable_data_lookups" {
-  description = "Enable read-only lookups of existing categories and affinity policies in Prism Central."
+  description = "Enable read-only lookups of existing Prism Central inventory (clusters, images, VMs, categories, affinity policies)."
   type        = bool
   default     = false
 }

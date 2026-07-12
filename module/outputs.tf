@@ -104,6 +104,25 @@ output "vm_anti_affinity_policy_ids" {
 }
 
 ##################################################
+# Data Lookup Outputs (populated when enable_data_lookups = true)
+##################################################
+
+output "existing_cluster_ext_ids" {
+  description = "Map of existing cluster names to their external IDs (populated when enable_data_lookups = true)."
+  value       = local.existing_cluster_ext_ids
+}
+
+output "existing_image_ext_ids" {
+  description = "Map of existing image names to their external IDs (populated when enable_data_lookups = true)."
+  value       = local.existing_image_ext_ids
+}
+
+output "existing_vm_ext_ids" {
+  description = "Map of existing virtual machine names to their external IDs (populated when enable_data_lookups = true)."
+  value       = local.existing_vm_ext_ids
+}
+
+##################################################
 # Summary
 ##################################################
 

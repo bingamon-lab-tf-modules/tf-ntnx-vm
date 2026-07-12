@@ -54,4 +54,29 @@ locals {
       v.guest_customization_sysprep != null
     )
   }
+
+  ##################################################
+  # Data Lookups (name -> ext_id convenience maps)
+  ##################################################
+
+  # Convenience maps of existing Prism Central inventory keyed by name, built from
+  # the gated data sources in data.tf. Only populated when
+  # var.enable_data_lookups = true; empty otherwise. The try() guards the
+  # count = 0 case, where the data source resolves to an empty list, so plan,
+  # validate and test work without a live Prism Central connection.
+
+  existing_cluster_ext_ids = {
+    for c in try(data.nutanix_clusters_v2.existing_cluster[0].cluster_entities, []) :
+    c.name => c.ext_id
+  }
+
+  existing_image_ext_ids = {
+    for i in try(data.nutanix_images_v2.existing_image[0].images, []) :
+    i.name => i.ext_id
+  }
+
+  existing_vm_ext_ids = {
+    for v in try(data.nutanix_virtual_machines_v2.existing_vm[0].vms, []) :
+    v.name => v.ext_id
+  }
 }
