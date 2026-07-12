@@ -104,6 +104,37 @@ output "vm_anti_affinity_policy_ids" {
 }
 
 ##################################################
+# Template Outputs
+##################################################
+
+output "templates" {
+  description = "Map of created VM templates with their details."
+  value = {
+    for k, v in nutanix_template_v2.template : k => {
+      ext_id = v.ext_id
+      name   = v.template_name
+    }
+  }
+}
+
+output "template_ids" {
+  description = "Map of template keys to their external IDs."
+  value       = { for k, v in nutanix_template_v2.template : k => v.ext_id }
+}
+
+output "template_deployments" {
+  description = "Map of template deployments with their resolved template ext_id, target cluster and VM count. NOTE: the deployed VMs are provider-side artifacts of the one-shot deploy action and are not tracked as VM resources here."
+  value = {
+    for k, v in nutanix_deploy_templates_v2.template_deployment : k => {
+      id              = v.id
+      template_ext_id = v.ext_id
+      cluster_ext_id  = v.cluster_reference
+      number_of_vms   = v.number_of_vms
+    }
+  }
+}
+
+##################################################
 # Data Lookup Outputs (populated when enable_data_lookups = true)
 ##################################################
 
@@ -120,6 +151,11 @@ output "existing_image_ext_ids" {
 output "existing_vm_ext_ids" {
   description = "Map of existing virtual machine names to their external IDs (populated when enable_data_lookups = true)."
   value       = local.existing_vm_ext_ids
+}
+
+output "existing_template_ext_ids" {
+  description = "Map of existing template names to their external IDs (populated when enable_data_lookups = true)."
+  value       = local.existing_template_ext_ids
 }
 
 ##################################################
@@ -139,5 +175,8 @@ output "compute_summary" {
     cloud_init_vms                  = length(local.cloud_init_vms)
     total_vm_host_affinity_policies = length(var.vm_host_affinity_policies)
     total_vm_anti_affinity_policies = length(var.vm_anti_affinity_policies)
+    total_templates                 = length(var.templates)
+    total_template_deployments      = length(var.template_deployments)
+    total_template_guest_os_actions = length(var.template_guest_os_actions)
   }
 }

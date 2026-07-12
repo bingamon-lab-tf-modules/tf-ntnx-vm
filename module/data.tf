@@ -24,6 +24,13 @@ data "nutanix_virtual_machines_v2" "existing_vm" {
   count = var.enable_data_lookups ? 1 : 0
 }
 
+# Existing versioned templates (template name -> ext_id). Lets consumers resolve
+# a friendly template name to the ext_id that deploy actions require, and lets
+# deployments target templates that were created outside this module.
+data "nutanix_templates_v2" "existing_template" {
+  count = var.enable_data_lookups ? 1 : 0
+}
+
 ##################################################
 # Placement Policy Lookups (gated by enable_data_lookups)
 ##################################################

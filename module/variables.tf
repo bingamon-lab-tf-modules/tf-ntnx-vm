@@ -259,3 +259,119 @@ variable "vm_anti_affinity_policies" {
     error_message = "Each vm_anti_affinity_policies entry must reference at least one VM category (vm_categories)."
   }
 }
+
+##################################################
+# VM Templates (v2, provider 2.4.2)
+##################################################
+
+# Versioned golden-image templates (nutanix_template_v2). A template is created
+# from a source VM (referenced by external ID); the provider captures that VM
+# into the template's initial, active version. This resource is steady-state:
+# it declares the template and its initial version. Day-2 guest-OS updates to a
+# template version are driven imperatively via var.template_guest_os_actions,
+# not by editing these attributes.
+variable "templates" {
+  description = "A map of versioned VM templates to manage in Nutanix (nutanix_template_v2). Each template captures a source VM (referenced by external ID) into its initial, active version."
+  type = map(object({
+    name             = string
+    description      = optional(string, null)
+    category_ext_ids = optional(list(string), [])
+
+    # Source VM external ID captured into the template's initial version via
+    # template_version_spec.version_source.template_vm_reference.ext_id. The
+    # source VM is referenced by ext_id, so templates do not depend on how the
+    # VM itself is managed (the v1 -> v2 VM migration is a separate epic).
+    source_vm_ext_id = string
+
+    # Initial version metadata.
+    version_name           = optional(string, null)
+    version_description    = optional(string, null)
+    is_active_version      = optional(bool, null) # provider default: true
+    is_gc_override_enabled = optional(bool, null) # allow guest-customization override at deploy time
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.templates :
+      v.source_vm_ext_id != null && v.source_vm_ext_id != ""
+    ])
+    error_message = "Each templates entry must set source_vm_ext_id (the external ID of the source VM to capture into the template)."
+  }
+}
+
+# Template deployments (nutanix_deploy_templates_v2) are IMPERATIVE, one-shot
+# actions: applying an entry deploys number_of_vms VMs from a template version
+# ONCE. The deployed VMs are provider-side artifacts -- they are NOT tracked as
+# nutanix_virtual_machine_v2 resources in this module's state, so day-2 changes
+# to them happen entirely outside this resource. Re-deploying requires a NEW map
+# key; mutating an existing entry (e.g. bumping number_of_vms) will not re-run
+# the deploy for the VMs it already created. Destroying a deployment entry does
+# not necessarily destroy the VMs it created -- the 2.4.2 registry docs do not
+# define destroy-time teardown of the deployed VMs, so treat them as unmanaged
+# once deployed.
+variable "template_deployments" {
+  description = "A map of one-shot template deployments (nutanix_deploy_templates_v2). IMPERATIVE: each entry deploys number_of_vms VMs once; the deployed VMs are provider-side artifacts, NOT tracked as VM resources. Re-deploy needs a new key; destroy does not necessarily remove the deployed VMs."
+  type = map(object({
+    # Template to deploy: a key of var.templates (resolved to the module-created
+    # template's ext_id) or a literal ext_id of a pre-existing template.
+    template = string
+    # Cluster to deploy into: a cluster name (resolved to ext_id when
+    # enable_data_lookups = true) or a literal cluster ext_id.
+    cluster       = string
+    number_of_vms = number
+    # Optional specific template version to deploy (defaults to the active one).
+    version_id = optional(string, null)
+    # Optional per-VM overrides applied to the deployed VMs.
+    override_vm_configs = optional(list(object({
+      name                 = optional(string, null)
+      memory_size_mib      = optional(number, null)
+      num_sockets          = optional(number, null)
+      num_cores_per_socket = optional(number, null)
+      num_threads_per_core = optional(number, null)
+    })), [])
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.template_deployments :
+      v.number_of_vms >= 1
+    ])
+    error_message = "Each template_deployments entry must set number_of_vms >= 1."
+  }
+}
+
+# Guest-OS update sessions (nutanix_template_guest_os_actions_v2) drive an
+# operator-triggered state machine over a template version: `initiate` starts a
+# guest-OS update session (so an operator can patch the version's VM), `complete`
+# finalises the session into a new template version, and `cancel` aborts it.
+# These are OPERATOR-TRIGGERED, one-shot actions, not steady-state config -- each
+# entry performs its action once on apply. Populate this map only when actively
+# running a guest-OS update; leave it empty ({}) in steady state.
+variable "template_guest_os_actions" {
+  description = "A map of operator-triggered guest-OS update actions on template versions (nutanix_template_guest_os_actions_v2). One-shot state machine (initiate/complete/cancel), NOT steady-state config -- keep empty ({}) unless actively updating a template's guest OS."
+  type = map(object({
+    # Template whose version the action targets: a key of var.templates (resolved
+    # to the module-created template's ext_id) or a literal template ext_id.
+    template = string
+    action   = string # initiate | complete | cancel
+    # version_id is required for `initiate` (which version to update).
+    version_id = optional(string, null)
+    # version_name and version_description are required for `complete`.
+    version_name        = optional(string, null)
+    version_description = optional(string, null)
+    # Mark the resulting version active on `complete` (provider default true).
+    # The provider types this field as a string ("true"/"false") on this resource.
+    is_active_version = optional(string, null)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.template_guest_os_actions :
+      contains(["initiate", "complete", "cancel"], v.action)
+    ])
+    error_message = "template_guest_os_actions 'action' must be one of: initiate, complete, cancel."
+  }
+}

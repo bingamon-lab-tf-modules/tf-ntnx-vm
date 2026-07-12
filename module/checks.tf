@@ -63,3 +63,30 @@ check "anti_affinity_policies_have_vm_categories" {
     error_message = "VM anti-affinity policies should reference at least one VM category."
   }
 }
+
+# Validate that every template deployment references a resolvable template:
+# either a key of var.templates (a module-created template) or a non-empty
+# literal ext_id of a pre-existing template.
+check "template_deployments_reference_resolvable_template" {
+  assert {
+    condition = alltrue([
+      for k, v in var.template_deployments :
+      contains(keys(var.templates), v.template) || (v.template != null && v.template != "")
+    ])
+    error_message = "Each template deployment should reference a templates map key or a non-empty template ext_id."
+  }
+}
+
+# Validate that guest-OS update actions carry the fields their action requires:
+# `initiate` needs version_id; `complete` needs version_name and
+# version_description (version fields coherent with the action).
+check "template_guest_os_actions_version_fields_coherent" {
+  assert {
+    condition = alltrue([
+      for k, v in var.template_guest_os_actions :
+      (v.action != "initiate" || v.version_id != null) &&
+      (v.action != "complete" || (v.version_name != null && v.version_description != null))
+    ])
+    error_message = "Guest-OS 'initiate' actions should set version_id; 'complete' actions should set version_name and version_description."
+  }
+}

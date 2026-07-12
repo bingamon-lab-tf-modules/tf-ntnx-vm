@@ -79,4 +79,36 @@ locals {
     for v in try(data.nutanix_virtual_machines_v2.existing_vm[0].vms, []) :
     v.name => v.ext_id
   }
+
+  # Existing templates (template name -> ext_id) from the gated data lookup.
+  existing_template_ext_ids = {
+    for t in try(data.nutanix_templates_v2.existing_template[0].templates, []) :
+    t.template_name => t.ext_id
+  }
+
+  ##################################################
+  # Templates (deployment / action -> template ext_id resolution)
+  ##################################################
+
+  # Resolve each deployment's template reference to an ext_id. A deployment's
+  # `template` is either a key of var.templates (a module-created template,
+  # whose computed ext_id is used) or a literal ext_id of a pre-existing
+  # template. Module-created templates win.
+  template_deployment_template_ext_id = {
+    for k, v in var.template_deployments : k => (
+      contains(keys(var.templates), v.template)
+      ? nutanix_template_v2.template[v.template].ext_id
+      : v.template
+    )
+  }
+
+  # Resolve each guest-OS action's template reference to an ext_id, using the
+  # same module-created-template-first rule as deployments.
+  template_guest_os_action_ext_id = {
+    for k, v in var.template_guest_os_actions : k => (
+      contains(keys(var.templates), v.template)
+      ? nutanix_template_v2.template[v.template].ext_id
+      : v.template
+    )
+  }
 }
