@@ -58,54 +58,37 @@ module "vm" {
   # Virtual Machines
   virtual_machines = {
     webserver = {
-      name         = "webserver-01"
-      description  = "Web server VM"
-      cluster_uuid = var.cluster_uuid
+      name           = "webserver-01"
+      description    = "Web server VM"
+      cluster_ext_id = var.cluster_ext_id
 
       # Compute
-      num_vcpus_per_socket = 2
+      num_cores_per_socket = 2
       num_sockets          = 1
       memory_size_mib      = 4096
 
       # Boot
-      boot_type              = "UEFI"
-      boot_device_order_list = ["DISK", "CDROM", "NETWORK"]
+      boot_type  = "UEFI"
+      boot_order = ["DISK", "CDROM", "NETWORK"]
 
-      # Categories
-      categories = [
-        {
-          name  = "Environment"
-          value = "Production"
-        },
-        {
-          name  = "AppType"
-          value = "WebServer"
-        }
-      ]
+      # Categories (v2: category external IDs)
+      category_ext_ids = [var.environment_category_ext_id]
 
-      # Disks
-      disk_list = [
+      # Disks - image-backed OS disk
+      disks = [
         {
           disk_size_mib = 51200 # 50GB
-          device_properties = {
-            device_type = "DISK"
-            disk_address = {
-              device_index = 0
-              adapter_type = "SCSI"
-            }
-          }
-          data_source_reference = {
-            kind = "image"
-            uuid = var.source_image_uuid
-          }
+          bus_type      = "SCSI"
+          index         = 0
+          image_ext_id  = var.source_image_ext_id
         }
       ]
 
       # NICs
-      nic_list = [
+      nics = [
         {
-          subnet_uuid = var.subnet_uuid
-          nic_type    = "NORMAL_NIC"
+          subnet_ext_id = var.subnet_ext_id
+          nic_type      = "NORMAL_NIC"
         }
       ]
 
@@ -117,66 +100,39 @@ module "vm" {
     }
 
     database = {
-      name         = "database-01"
-      description  = "Database server VM"
-      cluster_uuid = var.cluster_uuid
+      name           = "database-01"
+      description    = "Database server VM"
+      cluster_ext_id = var.cluster_ext_id
 
       # Compute
-      num_vcpus_per_socket = 4
+      num_cores_per_socket = 4
       num_sockets          = 1
       memory_size_mib      = 8192
 
-      # Categories
-      categories = [
-        {
-          name  = "Environment"
-          value = "Production"
-        },
-        {
-          name  = "AppType"
-          value = "Database"
-        }
-      ]
+      # Categories (v2: category external IDs)
+      category_ext_ids = [var.environment_category_ext_id]
 
-      # Disks - OS disk + data disk
-      disk_list = [
+      # Disks - image-backed OS disk + blank data disk
+      disks = [
         {
           disk_size_mib = 51200 # 50GB OS
-          device_properties = {
-            device_type = "DISK"
-            disk_address = {
-              device_index = 0
-              adapter_type = "SCSI"
-            }
-          }
-          data_source_reference = {
-            kind = "image"
-            uuid = var.source_image_uuid
-          }
+          bus_type      = "SCSI"
+          index         = 0
+          image_ext_id  = var.source_image_ext_id
         },
         {
-          disk_size_mib = 102400 # 100GB data
-          device_properties = {
-            device_type = "DISK"
-            disk_address = {
-              device_index = 1
-              adapter_type = "SCSI"
-            }
-          }
-          storage_config = {
-            storage_container_reference = {
-              kind = "storage_container"
-              uuid = var.storage_container_uuid
-            }
-          }
+          disk_size_mib            = 102400 # 100GB data
+          bus_type                 = "SCSI"
+          index                    = 1
+          storage_container_ext_id = var.storage_container_ext_id
         }
       ]
 
       # NICs
-      nic_list = [
+      nics = [
         {
-          subnet_uuid = var.subnet_uuid
-          nic_type    = "NORMAL_NIC"
+          subnet_ext_id = var.subnet_ext_id
+          nic_type      = "NORMAL_NIC"
         }
       ]
 

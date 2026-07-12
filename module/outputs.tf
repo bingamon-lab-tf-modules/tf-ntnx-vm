@@ -26,38 +26,41 @@ output "image_ids" {
 output "virtual_machines" {
   description = "Map of created VMs with their details."
   value = {
-    for k, v in nutanix_virtual_machine.vm : k => {
-      id                   = v.id
+    for k, v in nutanix_virtual_machine_v2.vm : k => {
+      id                   = v.ext_id
+      ext_id               = v.ext_id
       name                 = v.name
-      cluster_uuid         = v.cluster_uuid
-      cluster_name         = v.cluster_name
+      cluster_ext_id       = length(v.cluster) > 0 ? v.cluster[0].ext_id : null
       num_sockets          = v.num_sockets
-      num_vcpus_per_socket = v.num_vcpus_per_socket
-      memory_size_mib      = v.memory_size_mib
+      num_cores_per_socket = v.num_cores_per_socket
+      memory_size_bytes    = v.memory_size_bytes
       power_state          = v.power_state
-      state                = v.state
     }
   }
 }
 
 output "virtual_machine_ids" {
-  description = "Map of VM keys to their UUIDs."
-  value       = { for k, v in nutanix_virtual_machine.vm : k => v.id }
+  description = "Map of VM keys to their external IDs."
+  value       = { for k, v in nutanix_virtual_machine_v2.vm : k => v.ext_id }
 }
 
 output "virtual_machine_nic_list" {
-  description = "Map of VM keys to their NIC list status (includes assigned IPs)."
+  description = "Map of VM keys to their NIC list (includes backing and network info with assigned IPs)."
   value = {
-    for k, v in nutanix_virtual_machine.vm : k => v.nic_list_status
+    for k, v in nutanix_virtual_machine_v2.vm : k => v.nics
   }
 }
 
 output "virtual_machine_nic_ips" {
-  description = "Map of virtual machine keys to their NIC IP addresses."
+  description = "Map of virtual machine keys to their learned NIC IP addresses."
   value = {
-    for k, v in nutanix_virtual_machine.vm : k => flatten([
-      for nic in v.nic_list_status : [
-        for ip in nic.ip_endpoint_list : ip.ip
+    for k, v in nutanix_virtual_machine_v2.vm : k => flatten([
+      for nic in v.nics : [
+        for ni in nic.network_info : [
+          for info in ni.ipv4_info : [
+            for addr in info.learned_ip_addresses : addr.value
+          ]
+        ]
       ]
     ])
   }

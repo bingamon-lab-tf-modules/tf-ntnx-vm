@@ -46,113 +46,124 @@ variable "images" {
 }
 
 ##################################################
-# Virtual Machines
+# Virtual Machines (v2 / v4 API)
 ##################################################
 
+# Schema follows the nutanix_virtual_machine_v2 (v4 AHV config) resource. See
+# module/README.md "Migration notes (v1 -> v2)" for the v1 -> v2 field mapping
+# and for the handful of v1 fields that have no v2 equivalent.
 variable "virtual_machines" {
-  description = "A map of virtual machines to manage in Nutanix."
+  description = "A map of virtual machines to manage in Nutanix (nutanix_virtual_machine_v2)."
   type = map(object({
-    name                    = string
-    description             = optional(string, null)
-    cluster_uuid            = string
-    num_sockets             = optional(number, 1)
-    num_vcpus_per_socket    = optional(number, 1)
-    num_threads_per_core    = optional(number, null)
-    memory_size_mib         = optional(number, 2048)
-    power_state             = optional(string, "ON")
-    machine_type            = optional(string, null)
-    boot_type               = optional(string, null)
-    guest_os_id             = optional(string, null)
-    hardware_clock_timezone = optional(string, null)
-    vga_console_enabled     = optional(bool, null)
-    use_hot_add             = optional(bool, true)
-    enable_cpu_passthrough  = optional(bool, null)
-    is_vcpu_hard_pinned     = optional(bool, null)
-    num_vnuma_nodes         = optional(number, null)
+    name        = string
+    description = optional(string, null)
 
-    categories = optional(list(object({
-      name  = string
-      value = string
-    })), [])
+    # Placement: v2 references the cluster by its external ID (was cluster_uuid).
+    cluster_ext_id = string
 
-    nic_list = optional(list(object({
-      subnet_uuid               = optional(string, null)
-      subnet_name               = optional(string, null)
+    # Compute sizing.
+    num_sockets          = optional(number, 1)
+    num_cores_per_socket = optional(number, 1)    # was num_vcpus_per_socket
+    num_threads_per_core = optional(number, null) # now supported (v1 TODO)
+    num_numa_nodes       = optional(number, null) # was num_vnuma_nodes
+    memory_size_mib      = optional(number, 2048) # converted to memory_size_bytes
+
+    # Lifecycle and hardware flags.
+    power_state                  = optional(string, "ON")
+    machine_type                 = optional(string, null)
+    hardware_clock_timezone      = optional(string, null)
+    is_vga_console_enabled       = optional(bool, null) # was vga_console_enabled
+    is_cpu_passthrough_enabled   = optional(bool, null) # was enable_cpu_passthrough
+    is_vcpu_hard_pinning_enabled = optional(bool, null) # was is_vcpu_hard_pinned
+    is_cpu_hotplug_enabled       = optional(bool, null) # v2-native (see migration notes re: use_hot_add)
+    is_memory_overcommit_enabled = optional(bool, null)
+
+    # Categories: v2 associates categories by external ID (was name/value pairs).
+    category_ext_ids = optional(list(string), [])
+
+    # Boot configuration. boot_type selects legacy_boot vs uefi_boot; SECURE_BOOT
+    # maps to uefi_boot with is_secure_boot_enabled = true.
+    boot_type  = optional(string, null)          # UEFI | LEGACY | SECURE_BOOT
+    boot_order = optional(list(string), [])      # e.g. ["DISK", "CDROM", "NETWORK"]
+    boot_device_disk_address = optional(object({ # now supported (v1 TODO)
+      bus_type = optional(string, "SCSI")
+      index    = optional(number, 0)
+    }), null)
+    boot_device_mac_address = optional(string, null) # boot from a specific NIC
+
+    # NICs. Subnet is referenced by external ID (was subnet_uuid/subnet_name).
+    nics = optional(list(object({
+      subnet_ext_id             = string
       nic_type                  = optional(string, "NORMAL_NIC")
+      network_function_nic_type = optional(string, null)
+      vlan_mode                 = optional(string, null)
+      is_connected              = optional(bool, true)
       model                     = optional(string, null)
       mac_address               = optional(string, null)
       num_queues                = optional(number, null)
-      network_function_nic_type = optional(string, null)
-      network_function_chain_reference = optional(object({
-        kind = optional(string, "network_function_chain")
-        uuid = string
+      # now supported (v1 TODO): network function chain by external ID.
+      network_function_chain_ext_id = optional(string, null)
+      ipv4 = optional(object({
+        should_assign_ip = optional(bool, null)
+        ip_address = optional(object({
+          value         = string
+          prefix_length = optional(number, null)
+        }), null)
+        secondary_ip_addresses = optional(list(object({
+          value         = string
+          prefix_length = optional(number, null)
+        })), [])
       }), null)
-      ip_endpoint_list = optional(list(object({
-        ip   = string
-        type = optional(string, "ASSIGNED")
-      })), [])
     })), [])
 
-    disk_list = optional(list(object({
+    # Data disks. Provide disk_size_bytes or disk_size_mib for blank disks, or an
+    # image_ext_id / source_vm_disk_ext_id to clone from an existing source.
+    disks = optional(list(object({
       disk_size_bytes = optional(number, null)
       disk_size_mib   = optional(number, null)
-      device_properties = optional(object({
-        device_type = optional(string, "DISK")
-        disk_address = optional(object({
-          device_index = number
-          adapter_type = string
-        }), null)
-      }), null)
-      data_source_reference = optional(object({
-        kind = string
-        uuid = string
-      }), null)
-      storage_config = optional(object({
-        flash_mode = optional(string, null)
-        storage_container_reference = optional(object({
-          kind = optional(string, "storage_container")
-          uuid = string
-        }), null)
-      }), null)
+      # now supported (v1 TODO): disk address bus_type/index.
+      bus_type = optional(string, "SCSI")
+      index    = optional(number, null)
+      # now supported (v1 TODO): clone source via data_source reference.
+      image_ext_id             = optional(string, null)
+      source_vm_disk_ext_id    = optional(string, null)
+      storage_container_ext_id = optional(string, null)
+      is_flash_mode_enabled    = optional(bool, null)
     })), [])
 
-    serial_port_list = optional(list(object({
+    # CD-ROMs (attach ISO images).
+    cd_roms = optional(list(object({
+      iso_type     = optional(string, null)
+      bus_type     = optional(string, "IDE")
+      index        = optional(number, null)
+      image_ext_id = optional(string, null)
+    })), [])
+
+    serial_ports = optional(list(object({
       index        = number
       is_connected = optional(bool, true)
     })), [])
 
-    boot_device_order_list  = optional(list(string), [])
-    boot_device_mac_address = optional(string, null)
-    boot_device_disk_address = optional(object({
-      device_index = number
-      adapter_type = string
-    }), null)
+    gpus = optional(list(object({
+      vendor    = optional(string, null)
+      mode      = optional(string, null)
+      device_id = optional(number, null)
+    })), [])
 
-    guest_customization_cloud_init_user_data         = optional(string, null)
-    guest_customization_cloud_init_meta_data         = optional(string, null)
-    guest_customization_cloud_init_custom_key_values = optional(map(string), null)
-    guest_customization_is_overridable               = optional(bool, null)
+    # Guest customization: cloud-init (Linux) or sysprep (Windows).
+    guest_customization_cloud_init_user_data       = optional(string, null)
+    guest_customization_cloud_init_metadata        = optional(string, null)
+    guest_customization_cloud_init_datasource_type = optional(string, null)
+    # now supported (v1 TODO): sysprep guest customization block.
     guest_customization_sysprep = optional(object({
       install_type = optional(string, "PREPARED")
       unattend_xml = optional(string, null)
     }), null)
-    guest_customization_sysprep_custom_key_values = optional(map(string), null)
 
-    project_reference = optional(object({
-      kind = optional(string, "project")
-      uuid = string
-    }), null)
-
-    owner_reference = optional(object({
-      kind = optional(string, "user")
-      uuid = string
-    }), null)
-
-    gpu_list = optional(list(object({
-      vendor    = string
-      mode      = optional(string, null)
-      device_id = optional(number, null)
-    })), [])
+    # Project / ownership: now supported (v1 TODOs). v2 replaces the v3
+    # project_reference / owner_reference kind+uuid blocks with an external ID.
+    project_ext_id = optional(string, null)
+    owner_ext_id   = optional(string, null)
   }))
   default = {}
 
@@ -170,5 +181,13 @@ variable "virtual_machines" {
       v.boot_type == null || contains(["UEFI", "LEGACY", "SECURE_BOOT"], v.boot_type)
     ])
     error_message = "VM 'boot_type' must be one of: UEFI, LEGACY, SECURE_BOOT."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.virtual_machines :
+      v.machine_type == null || contains(["PC", "PSERIES", "Q35"], v.machine_type)
+    ])
+    error_message = "VM 'machine_type' must be one of: PC, PSERIES, Q35."
   }
 }

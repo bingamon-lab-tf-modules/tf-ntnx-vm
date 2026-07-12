@@ -21,7 +21,7 @@ locals {
   powered_off_vms = { for k, v in var.virtual_machines : k => v if v.power_state == "OFF" }
 
   # VMs with GPU
-  gpu_vms = { for k, v in var.virtual_machines : k => v if length(v.gpu_list) > 0 }
+  gpu_vms = { for k, v in var.virtual_machines : k => v if length(v.gpus) > 0 }
 
   # VMs with cloud-init
   cloud_init_vms = {
@@ -29,17 +29,29 @@ locals {
     if v.guest_customization_cloud_init_user_data != null
   }
 
-  # Sysprep typed object converted to the provider's map(string) attribute,
-  # with null attributes dropped (guest_customization_sysprep is an attribute
-  # string map on the v1 resource, not a block).
-  vm_sysprep = {
+  # Resolved boot configuration per VM. Null means "no boot_config block" so the
+  # provider default applies. boot_type selects legacy_boot vs uefi_boot, and
+  # SECURE_BOOT is uefi_boot with is_secure_boot_enabled = true.
+  vm_boot = {
     for k, v in var.virtual_machines : k => (
-      v.guest_customization_sysprep == null ? null : {
-        for attr, value in {
-          install_type = v.guest_customization_sysprep.install_type
-          unattend_xml = v.guest_customization_sysprep.unattend_xml
-        } : attr => value if value != null
+      (
+        v.boot_type == null &&
+        length(v.boot_order) == 0 &&
+        v.boot_device_disk_address == null &&
+        v.boot_device_mac_address == null
+        ) ? null : {
+        mode        = (v.boot_type == "UEFI" || v.boot_type == "SECURE_BOOT") ? "UEFI" : "LEGACY"
+        secure_boot = v.boot_type == "SECURE_BOOT"
       }
+    )
+  }
+
+  # Whether a VM needs a guest_customization block at all.
+  vm_guest_customization = {
+    for k, v in var.virtual_machines : k => (
+      v.guest_customization_cloud_init_user_data != null ||
+      v.guest_customization_cloud_init_metadata != null ||
+      v.guest_customization_sysprep != null
     )
   }
 }

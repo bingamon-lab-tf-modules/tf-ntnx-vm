@@ -3,7 +3,7 @@ check "vms_have_nic" {
   assert {
     condition = alltrue([
       for k, v in var.virtual_machines :
-      length(v.nic_list) > 0
+      length(v.nics) > 0
     ])
     error_message = "Virtual machines should have at least one NIC configured."
   }

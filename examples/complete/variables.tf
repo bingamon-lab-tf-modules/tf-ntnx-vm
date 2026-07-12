@@ -28,28 +28,28 @@ variable "nutanix_insecure" {
 # VM Variables
 ################################################################################
 
-variable "cluster_uuid" {
-  description = "Nutanix cluster UUID for VM placement"
-  type        = string
-}
-
 variable "cluster_ext_id" {
-  description = "Nutanix cluster external ID for image placement"
+  description = "Nutanix cluster external ID for VM placement and image location"
   type        = string
 }
 
-variable "subnet_uuid" {
-  description = "Subnet UUID for VM NIC attachment"
+variable "subnet_ext_id" {
+  description = "Subnet external ID for VM NIC attachment"
   type        = string
 }
 
-variable "source_image_uuid" {
-  description = "Source image UUID for VM disk cloning"
+variable "source_image_ext_id" {
+  description = "Source image external ID for VM disk cloning"
   type        = string
 }
 
-variable "storage_container_uuid" {
-  description = "Storage container UUID for additional disks"
+variable "storage_container_ext_id" {
+  description = "Storage container external ID for additional disks"
+  type        = string
+}
+
+variable "environment_category_ext_id" {
+  description = "Category external ID to associate with the VMs"
   type        = string
 }
 
