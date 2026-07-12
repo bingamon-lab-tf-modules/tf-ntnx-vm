@@ -191,3 +191,70 @@ variable "virtual_machines" {
     error_message = "VM 'machine_type' must be one of: PC, PSERIES, Q35."
   }
 }
+
+##################################################
+# Data Lookups
+##################################################
+
+# Read-only lookups of existing categories and affinity policies in Prism
+# Central. Disabled by default so plan/validate/test needs no live PC connection.
+variable "enable_data_lookups" {
+  description = "Enable read-only lookups of existing categories and affinity policies in Prism Central."
+  type        = bool
+  default     = false
+}
+
+##################################################
+# VM Placement Policies (v2, new in provider 2.4.2)
+##################################################
+
+# Host-affinity pins VMs (selected by category) to a set of hosts (also selected
+# by category). Categories are created in tf-ntnx-sec and referenced here by
+# their external IDs. Follows the nutanix_vm_host_affinity_policy_v2 resource.
+variable "vm_host_affinity_policies" {
+  description = "A map of VM host-affinity policies (nutanix_vm_host_affinity_policy_v2) that pin VMs to hosts via categories."
+  type = map(object({
+    name            = string
+    description     = optional(string, null)
+    vm_categories   = list(string) # category external IDs selecting the VMs
+    host_categories = list(string) # category external IDs selecting the hosts
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.vm_host_affinity_policies :
+      length(v.vm_categories) >= 1
+    ])
+    error_message = "Each vm_host_affinity_policies entry must reference at least one VM category (vm_categories)."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.vm_host_affinity_policies :
+      length(v.host_categories) >= 1
+    ])
+    error_message = "Each vm_host_affinity_policies entry must reference at least one host category (host_categories)."
+  }
+}
+
+# Anti-affinity keeps VMs (selected by category) apart on different hosts. The
+# nutanix_vm_anti_affinity_policy_v2 resource exposes a single `categories` set;
+# the module input calls it vm_categories for symmetry with host-affinity.
+variable "vm_anti_affinity_policies" {
+  description = "A map of VM anti-affinity policies (nutanix_vm_anti_affinity_policy_v2) that keep VMs apart via categories."
+  type = map(object({
+    name          = string
+    description   = optional(string, null)
+    vm_categories = list(string) # category external IDs selecting the VMs
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.vm_anti_affinity_policies :
+      length(v.vm_categories) >= 1
+    ])
+    error_message = "Each vm_anti_affinity_policies entry must reference at least one VM category (vm_categories)."
+  }
+}

@@ -67,19 +67,58 @@ output "virtual_machine_nic_ips" {
 }
 
 ##################################################
+# VM Placement Policy Outputs
+##################################################
+
+output "vm_host_affinity_policies" {
+  description = "Map of created VM host-affinity policies with their details."
+  value = {
+    for k, v in nutanix_vm_host_affinity_policy_v2.host_affinity_policy : k => {
+      ext_id          = v.ext_id
+      name            = v.name
+      vm_categories   = v.vm_categories
+      host_categories = v.host_categories
+    }
+  }
+}
+
+output "vm_host_affinity_policy_ids" {
+  description = "Map of VM host-affinity policy keys to their external IDs."
+  value       = { for k, v in nutanix_vm_host_affinity_policy_v2.host_affinity_policy : k => v.ext_id }
+}
+
+output "vm_anti_affinity_policies" {
+  description = "Map of created VM anti-affinity policies with their details."
+  value = {
+    for k, v in nutanix_vm_anti_affinity_policy_v2.anti_affinity_policy : k => {
+      ext_id     = v.ext_id
+      name       = v.name
+      categories = v.categories
+    }
+  }
+}
+
+output "vm_anti_affinity_policy_ids" {
+  description = "Map of VM anti-affinity policy keys to their external IDs."
+  value       = { for k, v in nutanix_vm_anti_affinity_policy_v2.anti_affinity_policy : k => v.ext_id }
+}
+
+##################################################
 # Summary
 ##################################################
 
 output "compute_summary" {
   description = "Summary of compute resources managed by this module."
   value = {
-    total_images           = length(var.images)
-    total_virtual_machines = length(var.virtual_machines)
-    disk_images            = length(local.disk_images)
-    iso_images             = length(local.iso_images)
-    powered_on_vms         = length(local.powered_on_vms)
-    powered_off_vms        = length(local.powered_off_vms)
-    gpu_vms                = length(local.gpu_vms)
-    cloud_init_vms         = length(local.cloud_init_vms)
+    total_images                    = length(var.images)
+    total_virtual_machines          = length(var.virtual_machines)
+    disk_images                     = length(local.disk_images)
+    iso_images                      = length(local.iso_images)
+    powered_on_vms                  = length(local.powered_on_vms)
+    powered_off_vms                 = length(local.powered_off_vms)
+    gpu_vms                         = length(local.gpu_vms)
+    cloud_init_vms                  = length(local.cloud_init_vms)
+    total_vm_host_affinity_policies = length(var.vm_host_affinity_policies)
+    total_vm_anti_affinity_policies = length(var.vm_anti_affinity_policies)
   }
 }
