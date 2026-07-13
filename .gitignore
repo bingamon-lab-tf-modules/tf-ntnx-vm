@@ -49,6 +49,9 @@ reports/
 # Ignore kics cache directory
 .kicscache/
 
+# Devcontainer
+.devcontainer/
+
 # Devenv
 .devenv*
 devenv.local.nix
