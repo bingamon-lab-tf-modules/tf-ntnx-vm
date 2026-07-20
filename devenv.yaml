@@ -1,4 +1,3 @@
-# yaml-language-server: $schema=https://devenv.sh/devenv.schema.json
 inputs:
   git-hooks:
     url: github:cachix/git-hooks.nix
@@ -14,4 +13,6 @@ inputs:
         follows: nixpkgs
   nixpkgs:
     url: github:cachix/devenv-nixpkgs/bump-rolling
+  nixpkgs-unstable:
+    url: github:nixos/nixpkgs/nixpkgs-unstable
 allowUnfree: true
