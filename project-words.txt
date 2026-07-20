@@ -38,6 +38,7 @@ maximize
 misconfig
 NCE
 nics
+nixos
 nixpkgs
 nlewo
 nopasswd
