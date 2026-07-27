@@ -54,6 +54,12 @@ resource "nutanix_images_v2" "image" {
       }
     }
   }
+
+  lifecycle {
+    ignore_changes = [
+      source[0].url_source[0].should_allow_insecure_url,
+    ]
+  }
 }
 
 ##################################################
@@ -389,5 +395,14 @@ resource "nutanix_virtual_machine_v2" "vm" {
         ext_id = ownership_info.value
       }
     }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      guest_customization,
+      cd_roms,
+      boot_config[0].uefi_boot[0].boot_order,
+      boot_config[0].legacy_boot[0].boot_order,
+    ]
   }
 }

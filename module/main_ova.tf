@@ -156,4 +156,13 @@ resource "nutanix_ova_vm_deploy_v2" "ova_deployment" {
       }
     }
   }
+
+  lifecycle {
+    ignore_changes = [
+      override_vm_config[0].memory_size_bytes,
+      override_vm_config[0].num_sockets,
+      override_vm_config[0].num_cores_per_socket,
+      override_vm_config[0].num_threads_per_core,
+    ]
+  }
 }
