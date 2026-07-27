@@ -90,7 +90,7 @@ resource "nutanix_virtual_machine_v2" "vm" {
 
   # Category associations (v2: by external ID).
   dynamic "categories" {
-    for_each = toset(each.value.category_ext_ids)
+    for_each = toset(local.vm_category_ext_ids[each.key])
     content {
       ext_id = categories.value
     }
@@ -176,7 +176,14 @@ resource "nutanix_virtual_machine_v2" "vm" {
         vlan_mode                 = nics.value.vlan_mode
 
         subnet {
-          ext_id = nics.value.subnet_ext_id
+          # subnet_name resolves via the network_topology landing zone's
+          # name map, so config carries "Virtual Machines" rather than a UUID
+          # and the subnet is created before any VM attaches to it.
+          ext_id = (
+            nics.value.subnet_name != null
+            ? local.resolved_subnet_names[nics.value.subnet_name]
+            : nics.value.subnet_ext_id
+          )
         }
 
         dynamic "network_function_chain" {
@@ -227,8 +234,15 @@ resource "nutanix_virtual_machine_v2" "vm" {
             disks.value.disk_size_mib != null ? disks.value.disk_size_mib * 1024 * 1024 : null
           )
 
+          # storage_container_key resolves against var.storage_container_ids,
+          # which the caller populates from the storage landing zone's output —
+          # the cross-landing-zone edge that lets a VM land on a container
+          # created in the same apply. storage_container_ext_id remains the
+          # literal escape hatch; omitting both lets Nutanix choose.
           dynamic "storage_container" {
-            for_each = disks.value.storage_container_ext_id != null ? [disks.value.storage_container_ext_id] : []
+            for_each = (disks.value.storage_container_key != null
+              ? [local.resolved_storage_container_ids[disks.value.storage_container_key]]
+            : disks.value.storage_container_ext_id != null ? [disks.value.storage_container_ext_id] : [])
             content {
               ext_id = storage_container.value
             }
@@ -242,11 +256,17 @@ resource "nutanix_virtual_machine_v2" "vm" {
           }
 
           dynamic "data_source" {
-            for_each = (disks.value.image_ext_id != null || disks.value.source_vm_disk_ext_id != null) ? [1] : []
+            for_each = (disks.value.image_key != null || disks.value.image_ext_id != null || disks.value.source_vm_disk_ext_id != null) ? [1] : []
             content {
               reference {
+                # image_key resolves against images this module creates, which
+                # is what makes the VM depend on the image. image_ext_id stays
+                # as the literal escape hatch. Variable validation guarantees
+                # they are never both set.
                 dynamic "image_reference" {
-                  for_each = disks.value.image_ext_id != null ? [disks.value.image_ext_id] : []
+                  for_each = (disks.value.image_key != null
+                    ? [local.managed_image_ext_ids[disks.value.image_key]]
+                  : disks.value.image_ext_id != null ? [disks.value.image_ext_id] : [])
                   content {
                     image_ext_id = image_reference.value
                   }
@@ -277,7 +297,9 @@ resource "nutanix_virtual_machine_v2" "vm" {
       }
 
       dynamic "backing_info" {
-        for_each = cd_roms.value.image_ext_id != null ? [cd_roms.value.image_ext_id] : []
+        for_each = (cd_roms.value.image_key != null
+          ? [local.managed_image_ext_ids[cd_roms.value.image_key]]
+        : cd_roms.value.image_ext_id != null ? [cd_roms.value.image_ext_id] : [])
         content {
           data_source {
             reference {

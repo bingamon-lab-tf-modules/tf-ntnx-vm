@@ -4,6 +4,53 @@ locals {
   # Images
   ##################################################
 
+  ##################################################
+  # Key -> ext_id resolution
+  #
+  # These are what give OpenTofu a dependency edge. Referencing
+  # nutanix_images_v2.image[k].ext_id (rather than accepting a literal ext_id)
+  # makes every VM, OVA deployment and template deployment depend on the image
+  # it consumes, so a clean-slate apply orders itself correctly in ONE run and
+  # no UUID is ever written into config.
+  ##################################################
+
+  # image key -> ext_id, for images this module creates.
+  managed_image_ext_ids = {
+    for k, v in nutanix_images_v2.image : k => v.ext_id
+  }
+
+  # Subnet NAME -> ext_id, passed in from the network_topology landing zone.
+  # Kept as its own local so an unresolved name fails in one obvious place.
+  resolved_subnet_names = var.subnet_names
+
+  # Per-VM category ext_ids: keys resolved against the security_governance
+  # landing zone's categories, plus any literal ext_ids. This reference is what
+  # orders categories before the VMs that carry them.
+  vm_category_ext_ids = {
+    for k, v in var.virtual_machines : k => concat(
+      [for ck in v.category_keys : var.category_ids[ck]],
+      v.category_ext_ids,
+    )
+  }
+
+  ova_deployment_category_ext_ids = {
+    for k, v in var.ova_deployments : k => concat(
+      [for ck in v.category_keys : var.category_ids[ck]],
+      v.category_ext_ids,
+    )
+  }
+
+  # Storage container key -> ext_id, passed in from the storage landing zone.
+  # Kept as its own local so an unresolved key fails in one obvious place
+  # rather than inside a nested dynamic block.
+  resolved_storage_container_ids = var.storage_container_ids
+
+  # NOTE: there is deliberately no managed_ova_ext_ids here. OVA references
+  # already accept "key of var.ovas OR literal ext_id" and resolve via
+  # ova_download_ova_ext_id / ova_deployment_ova_ext_id below, which gives the
+  # same dependency edge. Images needed image_key because a VM disk's
+  # image_ext_id was a raw passthrough with no such rule.
+
   # Disk images
   disk_images = { for k, v in var.images : k => v if v.type == "DISK_IMAGE" }
 
