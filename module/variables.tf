@@ -62,14 +62,8 @@ variable "images" {
 # OpenTofu the edge instead: storage -> compute, in one apply, with no ext_id
 # written into config by hand.
 # Subnets are owned by the network_topology landing zone. The caller passes its
-# subnet_ids output (key => ext_id) and a NAME => ext_id map built from the same
-# source, so a NIC can say subnet_name: "Virtual Machines" — what an operator
-# sees in Prism — instead of a UUID.
-variable "subnet_ids" {
-  description = "Map of subnet key => ext_id, from the network_topology landing zone's subnet_ids output."
-  type        = map(string)
-  default     = {}
-}
+# subnet_names output (NAME => ext_id map) so a NIC can say
+# subnet_name: "Virtual Machines" — what an operator sees in Prism — instead of a UUID.
 
 variable "subnet_names" {
   description = "Map of subnet NAME => ext_id, from the network_topology landing zone. Referenced by a NIC's 'subnet_name'. Names must be unique across the environment; the caller is responsible for rejecting duplicates before they reach here."

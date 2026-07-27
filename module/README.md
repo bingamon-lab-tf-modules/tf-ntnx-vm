@@ -71,14 +71,14 @@ were dropped:
 ## Requirements
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.10.0 |
 | <a name="requirement_nutanix"></a> [nutanix](#requirement\_nutanix) | >= 2.4.2 |
 
 ## Providers
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="provider_nutanix"></a> [nutanix](#provider\_nutanix) | 2.4.2 |
 
 ## Modules
@@ -88,7 +88,7 @@ No modules.
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [nutanix_deploy_templates_v2.template_deployment](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/deploy_templates_v2) | resource |
 | [nutanix_images_v2.image](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/images_v2) | resource |
 | [nutanix_ngt_insert_iso_v2.ngt_iso_insert](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/ngt_insert_iso_v2) | resource |
@@ -122,7 +122,7 @@ No modules.
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_category_ids"></a> [category\_ids](#input\_category\_ids) | Map of category key => ext\_id, from the security\_governance landing zone's category\_ids output. Referenced by 'category\_keys' on VMs, images and OVA deployments. | `map(string)` | `{}` | no |
 | <a name="input_enable_data_lookups"></a> [enable\_data\_lookups](#input\_enable\_data\_lookups) | Enable read-only lookups of existing Prism Central inventory (clusters, images, VMs, categories, affinity policies). | `bool` | `false` | no |
 | <a name="input_images"></a> [images](#input\_images) | A map of images to manage in Nutanix. | <pre>map(object({<br/>    name        = string<br/>    description = optional(string, null)<br/>    type        = string # DISK_IMAGE, ISO_IMAGE<br/><br/>    source = optional(object({<br/>      url_source = optional(object({<br/>        url                       = string<br/>        should_allow_insecure_url = optional(bool, false)<br/>        basic_auth = optional(object({<br/>          username = string<br/>          password = string<br/>        }), null)<br/>      }), null)<br/>      vm_disk_source = optional(object({<br/>        ext_id = string<br/>      }), null)<br/>      object_lite_source = optional(object({<br/>        key = string<br/>      }), null)<br/>    }), null)<br/><br/>    checksum = optional(object({<br/>      hex_digest  = string<br/>      object_type = optional(string, null)<br/>    }), null)<br/><br/>    category_ext_ids         = optional(list(string), [])<br/>    cluster_location_ext_ids = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
@@ -132,7 +132,6 @@ No modules.
 | <a name="input_ova_downloads"></a> [ova\_downloads](#input\_ova\_downloads) | A map of one-shot OVA export/download actions (nutanix\_ova\_download\_v2). IMPERATIVE: each entry exports the referenced OVA once; re-exporting needs a NEW map key. Keep empty ({}) unless actively exporting an OVA. | <pre>map(object({<br/>    # OVA to export: a key of var.ovas (resolved to the module-created OVA's<br/>    # ext_id) or a literal ext_id of a pre-existing OVA.<br/>    ova = string<br/>  }))</pre> | `{}` | no |
 | <a name="input_ovas"></a> [ovas](#input\_ovas) | A map of OVA appliance images to manage in Nutanix (nutanix\_ova\_v2). Each OVA is imported once from a URL, an object-store key, or an existing VM. OVAs are a separate family from images\_v2 (appliance bundles, not standalone disk/ISO images). | <pre>map(object({<br/>    name = string<br/>    # Disk format the OVA is stored in (e.g. QCOW2, VMDK). Provider-validated.<br/>    disk_format = optional(string, null)<br/>    # Clusters the OVA is placed on, by external ID.<br/>    cluster_location_ext_ids = optional(list(string), [])<br/><br/>    # Optional integrity checksum. Set sha1 and/or sha256 hex digests; each maps<br/>    # to the provider's ova_sha1_checksum / ova_sha256_checksum block.<br/>    checksum = optional(object({<br/>      sha1   = optional(string, null)<br/>      sha256 = optional(string, null)<br/>    }), null)<br/><br/>    # Exactly one source variant must be set (validated below):<br/>    #   url_source         -- import from a URL (optional basic auth).<br/>    #   object_lite_source -- import from an object-store key.<br/>    #   vm_source          -- capture an existing VM (by ext_id) into an OVA.<br/>    source = object({<br/>      url_source = optional(object({<br/>        url                       = string<br/>        should_allow_insecure_url = optional(bool, false)<br/>        basic_auth = optional(object({<br/>          username = string<br/>          password = string<br/>        }), null)<br/>      }), null)<br/>      object_lite_source = optional(object({<br/>        key = string<br/>      }), null)<br/>      vm_source = optional(object({<br/>        vm_ext_id        = string<br/>        disk_file_format = string # e.g. QCOW2, VMDK<br/>      }), null)<br/>    })<br/>  }))</pre> | `{}` | no |
 | <a name="input_storage_container_ids"></a> [storage\_container\_ids](#input\_storage\_container\_ids) | Map of storage container key => ext\_id, supplied by the caller from the storage landing zone's storage\_container\_ids output. Referenced by a VM disk's 'storage\_container\_key'. Empty when the storage landing zone is disabled, in which case disks must use storage\_container\_ext\_id or omit placement entirely. | `map(string)` | `{}` | no |
-| <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | Map of subnet key => ext\_id, from the network\_topology landing zone's subnet\_ids output. | `map(string)` | `{}` | no |
 | <a name="input_subnet_names"></a> [subnet\_names](#input\_subnet\_names) | Map of subnet NAME => ext\_id, from the network\_topology landing zone. Referenced by a NIC's 'subnet\_name'. Names must be unique across the environment; the caller is responsible for rejecting duplicates before they reach here. | `map(string)` | `{}` | no |
 | <a name="input_template_deployments"></a> [template\_deployments](#input\_template\_deployments) | A map of one-shot template deployments (nutanix\_deploy\_templates\_v2). IMPERATIVE: each entry deploys number\_of\_vms VMs once; the deployed VMs are provider-side artifacts, NOT tracked as VM resources. Re-deploy needs a new key; destroy does not necessarily remove the deployed VMs. | <pre>map(object({<br/>    # Template to deploy: a key of var.templates (resolved to the module-created<br/>    # template's ext_id) or a literal ext_id of a pre-existing template.<br/>    template = string<br/>    # Cluster to deploy into: a cluster name (resolved to ext_id when<br/>    # enable_data_lookups = true) or a literal cluster ext_id.<br/>    cluster       = string<br/>    number_of_vms = number<br/>    # Optional specific template version to deploy (defaults to the active one).<br/>    version_id = optional(string, null)<br/>    # Optional per-VM overrides applied to the deployed VMs.<br/>    override_vm_configs = optional(list(object({<br/>      name                 = optional(string, null)<br/>      memory_size_mib      = optional(number, null)<br/>      num_sockets          = optional(number, null)<br/>      num_cores_per_socket = optional(number, null)<br/>      num_threads_per_core = optional(number, null)<br/>    })), [])<br/>  }))</pre> | `{}` | no |
 | <a name="input_template_guest_os_actions"></a> [template\_guest\_os\_actions](#input\_template\_guest\_os\_actions) | A map of operator-triggered guest-OS update actions on template versions (nutanix\_template\_guest\_os\_actions\_v2). One-shot state machine (initiate/complete/cancel), NOT steady-state config -- keep empty ({}) unless actively updating a template's guest OS. | <pre>map(object({<br/>    # Template whose version the action targets: a key of var.templates (resolved<br/>    # to the module-created template's ext_id) or a literal template ext_id.<br/>    template = string<br/>    action   = string # initiate | complete | cancel<br/>    # version_id is required for `initiate` (which version to update).<br/>    version_id = optional(string, null)<br/>    # version_name and version_description are required for `complete`.<br/>    version_name        = optional(string, null)<br/>    version_description = optional(string, null)<br/>    # Mark the resulting version active on `complete` (provider default true).<br/>    # The provider types this field as a string ("true"/"false") on this resource.<br/>    is_active_version = optional(string, null)<br/>  }))</pre> | `{}` | no |
@@ -145,7 +144,7 @@ No modules.
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 | <a name="output_compute_summary"></a> [compute\_summary](#output\_compute\_summary) | Summary of compute resources managed by this module. |
 | <a name="output_existing_cluster_ext_ids"></a> [existing\_cluster\_ext\_ids](#output\_existing\_cluster\_ext\_ids) | Map of existing cluster names to their external IDs (populated when enable\_data\_lookups = true). |
 | <a name="output_existing_image_ext_ids"></a> [existing\_image\_ext\_ids](#output\_existing\_image\_ext\_ids) | Map of existing image names to their external IDs (populated when enable\_data\_lookups = true). |
