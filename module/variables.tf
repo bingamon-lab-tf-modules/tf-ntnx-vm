@@ -123,7 +123,7 @@ variable "virtual_machines" {
 
     # Boot configuration. boot_type selects legacy_boot vs uefi_boot; SECURE_BOOT
     # maps to uefi_boot with is_secure_boot_enabled = true.
-    boot_type  = optional(string, null)          # UEFI | LEGACY | SECURE_BOOT
+    boot_type  = optional(string, "UEFI")        # UEFI | LEGACY | SECURE_BOOT
     boot_order = optional(list(string), [])      # e.g. ["DISK", "CDROM", "NETWORK"]
     boot_device_disk_address = optional(object({ # now supported (v1 TODO)
       bus_type = optional(string, "SCSI")
