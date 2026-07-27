@@ -169,11 +169,13 @@ resource "nutanix_virtual_machine_v2" "vm" {
   dynamic "nics" {
     for_each = each.value.nics
     content {
-      backing_info {
-        is_connected = nics.value.is_connected
-        model        = nics.value.model
-        mac_address  = nics.value.mac_address
-        num_queues   = nics.value.num_queues
+      nic_backing_info {
+        virtual_ethernet_nic {
+          is_connected = nics.value.is_connected
+          model        = nics.value.model
+          mac_address  = nics.value.mac_address
+          num_queues   = nics.value.num_queues
+        }
       }
 
       network_info {
