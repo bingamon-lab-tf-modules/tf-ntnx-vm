@@ -90,7 +90,7 @@ resource "nutanix_virtual_machine_v2" "vm" {
 
   # Category associations (v2: by external ID).
   dynamic "categories" {
-    for_each = toset(each.value.category_ext_ids)
+    for_each = toset(local.vm_category_ext_ids[each.key])
     content {
       ext_id = categories.value
     }
@@ -176,7 +176,14 @@ resource "nutanix_virtual_machine_v2" "vm" {
         vlan_mode                 = nics.value.vlan_mode
 
         subnet {
-          ext_id = nics.value.subnet_ext_id
+          # subnet_name resolves via the network_topology landing zone's
+          # name map, so config carries "Virtual Machines" rather than a UUID
+          # and the subnet is created before any VM attaches to it.
+          ext_id = (
+            nics.value.subnet_name != null
+            ? local.resolved_subnet_names[nics.value.subnet_name]
+            : nics.value.subnet_ext_id
+          )
         }
 
         dynamic "network_function_chain" {

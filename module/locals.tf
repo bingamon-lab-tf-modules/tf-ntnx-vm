@@ -19,6 +19,27 @@ locals {
     for k, v in nutanix_images_v2.image : k => v.ext_id
   }
 
+  # Subnet NAME -> ext_id, passed in from the network_topology landing zone.
+  # Kept as its own local so an unresolved name fails in one obvious place.
+  resolved_subnet_names = var.subnet_names
+
+  # Per-VM category ext_ids: keys resolved against the security_governance
+  # landing zone's categories, plus any literal ext_ids. This reference is what
+  # orders categories before the VMs that carry them.
+  vm_category_ext_ids = {
+    for k, v in var.virtual_machines : k => concat(
+      [for ck in v.category_keys : var.category_ids[ck]],
+      v.category_ext_ids,
+    )
+  }
+
+  ova_deployment_category_ext_ids = {
+    for k, v in var.ova_deployments : k => concat(
+      [for ck in v.category_keys : var.category_ids[ck]],
+      v.category_ext_ids,
+    )
+  }
+
   # Storage container key -> ext_id, passed in from the storage landing zone.
   # Kept as its own local so an unresolved key fails in one obvious place
   # rather than inside a nested dynamic block.

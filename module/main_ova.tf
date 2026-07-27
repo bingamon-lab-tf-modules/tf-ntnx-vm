@@ -108,7 +108,10 @@ resource "nutanix_ova_vm_deploy_v2" "ova_deployment" {
     ) : null
 
     dynamic "categories" {
-      for_each = toset(each.value.category_ext_ids)
+      # Same backup-tier mechanism as a VM. Prism Central matches protection
+      # policies on CATEGORIES, so this tag protects the deployed VM even
+      # though OpenTofu never tracks it.
+      for_each = toset(local.ova_deployment_category_ext_ids[each.key])
       content {
         ext_id = categories.value
       }
@@ -128,7 +131,11 @@ resource "nutanix_ova_vm_deploy_v2" "ova_deployment" {
           vlan_mode = nics.value.vlan_mode
 
           subnet {
-            ext_id = nics.value.subnet_ext_id
+            ext_id = (
+              nics.value.subnet_name != null
+              ? local.resolved_subnet_names[nics.value.subnet_name]
+              : nics.value.subnet_ext_id
+            )
           }
 
           dynamic "ipv4_config" {

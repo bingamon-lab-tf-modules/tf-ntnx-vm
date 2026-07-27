@@ -61,6 +61,31 @@ variable "images" {
 # that landing zone's storage_container_ids output in here, which gives
 # OpenTofu the edge instead: storage -> compute, in one apply, with no ext_id
 # written into config by hand.
+# Subnets are owned by the network_topology landing zone. The caller passes its
+# subnet_ids output (key => ext_id) and a NAME => ext_id map built from the same
+# source, so a NIC can say subnet_name: "Virtual Machines" — what an operator
+# sees in Prism — instead of a UUID.
+variable "subnet_ids" {
+  description = "Map of subnet key => ext_id, from the network_topology landing zone's subnet_ids output."
+  type        = map(string)
+  default     = {}
+}
+
+variable "subnet_names" {
+  description = "Map of subnet NAME => ext_id, from the network_topology landing zone. Referenced by a NIC's 'subnet_name'. Names must be unique across the environment; the caller is responsible for rejecting duplicates before they reach here."
+  type        = map(string)
+  default     = {}
+}
+
+# Categories are owned by the security_governance landing zone. Passing them in
+# is what lets a VM declare its backup tier by name (category_keys:
+# ["backup-bronze"]) and gives OpenTofu the edge categories -> VMs.
+variable "category_ids" {
+  description = "Map of category key => ext_id, from the security_governance landing zone's category_ids output. Referenced by 'category_keys' on VMs, images and OVA deployments."
+  type        = map(string)
+  default     = {}
+}
+
 variable "storage_container_ids" {
   description = "Map of storage container key => ext_id, supplied by the caller from the storage landing zone's storage_container_ids output. Referenced by a VM disk's 'storage_container_key'. Empty when the storage landing zone is disabled, in which case disks must use storage_container_ext_id or omit placement entirely."
   type        = map(string)
@@ -94,6 +119,12 @@ variable "virtual_machines" {
     is_memory_overcommit_enabled = optional(bool, null)
 
     # Categories: v2 associates categories by external ID (was name/value pairs).
+    # Categories applied to the VM. 'category_keys' names them from the
+    # security_governance landing zone and is resolved to ext_ids; this is how
+    # a VM declares its BACKUP TIER (backup-gold / backup-silver /
+    # backup-bronze / backup-none). A protection policy targets the category,
+    # so tagging is the whole mechanism by which a VM gets backed up.
+    category_keys    = optional(list(string), [])
     category_ext_ids = optional(list(string), [])
 
     # Boot configuration. boot_type selects legacy_boot vs uefi_boot; SECURE_BOOT
@@ -108,7 +139,14 @@ variable "virtual_machines" {
 
     # NICs. Subnet is referenced by external ID (was subnet_uuid/subnet_name).
     nics = optional(list(object({
-      subnet_ext_id             = string
+      # Supply EXACTLY ONE of subnet_name / subnet_ext_id.
+      #   subnet_name    -- the subnet's Prism display name, resolved via
+      #     var.subnet_names. This is the readable form and the one that gives
+      #     OpenTofu a dependency on the subnet existing first.
+      #   subnet_ext_id  -- a literal UUID. Escape hatch for a subnet this
+      #     landing zone does not manage.
+      subnet_name               = optional(string, null)
+      subnet_ext_id             = optional(string, null)
       nic_type                  = optional(string, "NORMAL_NIC")
       network_function_nic_type = optional(string, null)
       vlan_mode                 = optional(string, null)
@@ -576,12 +614,18 @@ variable "ova_deployments" {
     num_cores_per_socket = optional(number, null)
     num_threads_per_core = optional(number, null)
     power_state          = optional(string, null) # ON | OFF
-    category_ext_ids     = optional(list(string), [])
+    # Same backup-tier mechanism as a VM. The deployed VM is untracked by
+    # OpenTofu, but Prism Central evaluates protection policies against
+    # CATEGORIES, not against state — so a tagged OVA deployment is still
+    # protected. This is the case category-driven backup exists for.
+    category_keys    = optional(list(string), [])
+    category_ext_ids = optional(list(string), [])
 
     # At least one NIC is required by the provider. Subnet is referenced by
     # external ID.
     nics = list(object({
-      subnet_ext_id = string
+      subnet_name   = optional(string, null)
+      subnet_ext_id = optional(string, null)
       nic_type      = optional(string, null)
       vlan_mode     = optional(string, null)
       is_connected  = optional(bool, null)

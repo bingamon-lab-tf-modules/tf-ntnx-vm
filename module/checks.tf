@@ -190,3 +190,46 @@ check "vm_disk_storage_container_keys_resolve" {
     error_message = "A VM disk 'storage_container_key' does not appear in var.storage_container_ids. Check the storage landing zone is enabled and that the key matches — Prism Element plane containers are keyed '<cluster>_<container>'."
   }
 }
+
+# Every NIC must resolve to a subnet.
+#
+# Checks rather than variable validations: var.subnet_names comes from ANOTHER
+# landing zone's output, so its keys are unknown at validate time on a
+# clean-slate apply. These report the offending name at plan time instead of
+# failing inside a nested dynamic block.
+check "vm_nic_subnet_names_resolve" {
+  assert {
+    condition = alltrue(flatten([
+      for k, v in var.virtual_machines : [
+        for n in v.nics :
+        n.subnet_name == null || contains(keys(var.subnet_names), coalesce(n.subnet_name, ""))
+      ]
+    ]))
+    error_message = "A VM NIC 'subnet_name' does not match any subnet. Check the network_topology landing zone is enabled and the name matches the subnet's Prism display name exactly (e.g. \"Virtual Machines\", not the YAML key \"vms\")."
+  }
+}
+
+check "ova_deployment_subnet_names_resolve" {
+  assert {
+    condition = alltrue(flatten([
+      for k, v in var.ova_deployments : [
+        for n in v.nics :
+        n.subnet_name == null || contains(keys(var.subnet_names), coalesce(n.subnet_name, ""))
+      ]
+    ]))
+    error_message = "An OVA deployment NIC 'subnet_name' does not match any subnet. See vm_nic_subnet_names_resolve."
+  }
+}
+
+# Category keys must resolve against the security_governance landing zone.
+# Without this a VM applies cleanly, carries no categories, and is therefore
+# NOT protected by any policy — a silent backup gap.
+check "category_keys_resolve" {
+  assert {
+    condition = alltrue(concat(
+      flatten([for k, v in var.virtual_machines : [for c in v.category_keys : contains(keys(var.category_ids), c)]]),
+      flatten([for k, v in var.ova_deployments : [for c in v.category_keys : contains(keys(var.category_ids), c)]]),
+    ))
+    error_message = "A 'category_keys' entry does not match any managed category. Check the security_governance landing zone is enabled and the key matches (e.g. \"backup-bronze\")."
+  }
+}
