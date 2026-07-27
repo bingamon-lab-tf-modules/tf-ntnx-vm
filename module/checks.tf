@@ -168,3 +168,25 @@ check "vm_reverts_reference_recovery_point" {
     error_message = "Each vm_actions revert should name a recovery point (recovery_point_ext_id)."
   }
 }
+
+# A disk's storage_container_key must resolve against the map the caller passed
+# in from the storage landing zone.
+#
+# This is a check rather than a variable validation on purpose: var.images and
+# var.ovas are this module's own inputs and can be validated directly, but
+# var.storage_container_ids arrives from ANOTHER landing zone's output. On a
+# clean-slate apply its keys are unknown at validate time, so a validation
+# would either be unevaluable or wrongly reject a legitimate config. A check
+# reports the mismatch at plan time with the offending key named, instead of
+# failing deep inside a dynamic block.
+check "vm_disk_storage_container_keys_resolve" {
+  assert {
+    condition = alltrue(flatten([
+      for k, v in var.virtual_machines : [
+        for d in v.disks :
+        d.storage_container_key == null || contains(keys(var.storage_container_ids), coalesce(d.storage_container_key, ""))
+      ]
+    ]))
+    error_message = "A VM disk 'storage_container_key' does not appear in var.storage_container_ids. Check the storage landing zone is enabled and that the key matches — Prism Element plane containers are keyed '<cluster>_<container>'."
+  }
+}

@@ -52,6 +52,21 @@ variable "images" {
 # Schema follows the nutanix_virtual_machine_v2 (v4 AHV config) resource. See
 # module/README.md "Migration notes (v1 -> v2)" for the v1 -> v2 field mapping
 # and for the handful of v1 fields that have no v2 equivalent.
+##################################################
+# Cross-landing-zone inputs
+##################################################
+
+# Storage containers are owned by a DIFFERENT landing zone (tf-ntnx-storage),
+# so this module cannot create a dependency on them directly. The caller passes
+# that landing zone's storage_container_ids output in here, which gives
+# OpenTofu the edge instead: storage -> compute, in one apply, with no ext_id
+# written into config by hand.
+variable "storage_container_ids" {
+  description = "Map of storage container key => ext_id, supplied by the caller from the storage landing zone's storage_container_ids output. Referenced by a VM disk's 'storage_container_key'. Empty when the storage landing zone is disabled, in which case disks must use storage_container_ext_id or omit placement entirely."
+  type        = map(string)
+  default     = {}
+}
+
 variable "virtual_machines" {
   description = "A map of virtual machines to manage in Nutanix (nutanix_virtual_machine_v2)."
   type = map(object({
@@ -125,17 +140,38 @@ variable "virtual_machines" {
       bus_type = optional(string, "SCSI")
       index    = optional(number, null)
       # now supported (v1 TODO): clone source via data_source reference.
-      image_ext_id             = optional(string, null)
-      source_vm_disk_ext_id    = optional(string, null)
+      # Boot/data source. Supply AT MOST ONE of image_key / image_ext_id.
+      #   image_key    -- key into var.images, resolved to that image's ext_id
+      #     after it is created. PREFERRED: it is the only form that gives
+      #     OpenTofu a dependency edge, so the image is guaranteed to exist
+      #     before the VM that boots from it, in a SINGLE apply.
+      #   image_ext_id -- a literal image ext_id. Escape hatch for an image
+      #     this module does not manage.
+      image_key             = optional(string, null)
+      image_ext_id          = optional(string, null)
+      source_vm_disk_ext_id = optional(string, null)
+
+      # Where the disk physically lands. Supply AT MOST ONE of
+      # storage_container_key / storage_container_ext_id; omit both to let
+      # Nutanix choose (usually default-container-*).
+      #   storage_container_key -- key into var.storage_container_ids, which the
+      #     caller populates from the storage landing zone's
+      #     storage_container_ids output. Keys are the storage module's own, so
+      #     for a Prism Element plane container that is the flattened
+      #     "<cluster>_<container>" form.
+      storage_container_key    = optional(string, null)
       storage_container_ext_id = optional(string, null)
       is_flash_mode_enabled    = optional(bool, null)
     })), [])
 
     # CD-ROMs (attach ISO images).
     cd_roms = optional(list(object({
-      iso_type     = optional(string, null)
-      bus_type     = optional(string, "IDE")
-      index        = optional(number, null)
+      iso_type = optional(string, null)
+      bus_type = optional(string, "IDE")
+      index    = optional(number, null)
+      # Same image_key / image_ext_id pair as disks above: image_key resolves
+      # against var.images and creates the dependency edge.
+      image_key    = optional(string, null)
       image_ext_id = optional(string, null)
     })), [])
 
@@ -190,6 +226,59 @@ variable "virtual_machines" {
     ])
     error_message = "VM 'machine_type' must be one of: PC, PSERIES, Q35."
   }
+  validation {
+    condition = alltrue(flatten([
+      for k, v in var.virtual_machines : [
+        for d in v.disks : !(d.image_key != null && d.image_ext_id != null)
+      ]
+    ]))
+    error_message = "A VM disk must not set both 'image_key' and 'image_ext_id'. Use image_key for an image this module creates; image_ext_id only for one it does not."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for k, v in var.virtual_machines : [
+        for d in v.disks :
+        d.image_key == null || contains(keys(var.images), coalesce(d.image_key, ""))
+      ]
+    ]))
+    error_message = "A VM disk 'image_key' must be a key in var.images."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for k, v in var.virtual_machines : [
+        for c in v.cd_roms : !(c.image_key != null && c.image_ext_id != null)
+      ]
+    ]))
+    error_message = "A VM CD-ROM must not set both 'image_key' and 'image_ext_id'."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for k, v in var.virtual_machines : [
+        for c in v.cd_roms :
+        c.image_key == null || contains(keys(var.images), coalesce(c.image_key, ""))
+      ]
+    ]))
+    error_message = "A VM CD-ROM 'image_key' must be a key in var.images."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for k, v in var.virtual_machines : [
+        for d in v.disks :
+        !(d.storage_container_key != null && d.storage_container_ext_id != null)
+      ]
+    ]))
+    error_message = "A VM disk must not set both 'storage_container_key' and 'storage_container_ext_id'."
+  }
+
+  # Deliberately NOT validated against keys(var.storage_container_ids): that map
+  # is populated from another landing zone's output, so on a clean-slate apply
+  # its keys are not known until storage has been created. A wrong key surfaces
+  # as an unresolved lookup instead, and checks.tf reports it at plan time.
+
 }
 
 ##################################################
