@@ -157,12 +157,37 @@ resource "nutanix_ova_vm_deploy_v2" "ova_deployment" {
     }
   }
 
+  # A DEPLOYED OVA IS A PET. Everything ignored here is a field the API POPULATES
+  # at deploy time and then reports back on every read, while config leaves it
+  # null — so each one is permanent drift that never converges.
+  #
+  # The sizing four were already ignored: the OVA's own descriptor wins over a
+  # null override, so state comes back with the appliance's CPU/RAM.
+  #
+  # power_state and nics are the same problem and were missed. After a deploy the
+  # API returns power_state = "ON" (config: null), and fills every NIC with a
+  # generated mac_address, num_queues, nic_type = "NORMAL_NIC", vlan_mode =
+  # "ACCESS" and an ipv4_config carrying the IPAM-assigned address — none of
+  # which config states, and none of which an operator should be hand-writing.
+  # Left unignored, every apply issues an UPDATE against the appliance purely to
+  # re-assert nulls, which can bounce its power state.
+  #
+  # NOT ignored, deliberately: name and categories. The backup tier is
+  # category-driven — Prism Central matches protection policies on CATEGORIES,
+  # not on OpenTofu state, and that tag is the ONLY thing protecting a VM this
+  # module does not track. It has to stay reconcilable from config.
+  #
+  # SCOPE: this block is on nutanix_ova_vm_deploy_v2 ONLY. Ordinary VMs are
+  # nutanix_virtual_machine_v2 in main.tf with their own lifecycle block and are
+  # completely unaffected — they are cattle and must keep reconciling.
   lifecycle {
     ignore_changes = [
       override_vm_config[0].memory_size_bytes,
       override_vm_config[0].num_sockets,
       override_vm_config[0].num_cores_per_socket,
       override_vm_config[0].num_threads_per_core,
+      override_vm_config[0].power_state,
+      override_vm_config[0].nics,
     ]
   }
 }
