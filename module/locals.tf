@@ -277,4 +277,56 @@ locals {
       : v.vm
     )
   }
+
+  ##################################################
+  # Learned NIC IP addresses
+  #
+  # Hoisted out of outputs.tf, where the same comprehension appeared twice
+  # (virtual_machine_nic_ips and the aggregate `outputs` block) and had to be
+  # migrated in both places.
+  #
+  # Reads the NEW discriminated-union path
+  # (nic_network_info -> virtual_ethernet_nic_network_info) and falls back to
+  # the deprecated flat `network_info` when it comes back empty. The provider
+  # currently populates BOTH on read, so the fallback is belt-and-braces for
+  # older provider builds; drop it once network_info is removed upstream.
+  #
+  # This is the output a caller uses to find a freshly built VM over SSH, so a
+  # silently empty list here is worse than a loud failure.
+  ##################################################
+  vm_nic_ips = {
+    for k, v in nutanix_virtual_machine_v2.vm : k => (
+      length(flatten([
+        for nic in v.nics : [
+          for ni in try(nic.nic_network_info, []) : [
+            for vni in try(ni.virtual_ethernet_nic_network_info, []) : [
+              for info in try(vni.ipv4_info, []) : [
+                for addr in try(info.learned_ip_addresses, []) : addr.value
+              ]
+            ]
+          ]
+        ]
+      ])) > 0
+      ? flatten([
+        for nic in v.nics : [
+          for ni in try(nic.nic_network_info, []) : [
+            for vni in try(ni.virtual_ethernet_nic_network_info, []) : [
+              for info in try(vni.ipv4_info, []) : [
+                for addr in try(info.learned_ip_addresses, []) : addr.value
+              ]
+            ]
+          ]
+        ]
+      ])
+      : flatten([
+        for nic in v.nics : [
+          for ni in try(nic.network_info, []) : [
+            for info in try(ni.ipv4_info, []) : [
+              for addr in try(info.learned_ip_addresses, []) : addr.value
+            ]
+          ]
+        ]
+      ])
+    )
+  }
 }

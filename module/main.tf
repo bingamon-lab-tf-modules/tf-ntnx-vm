@@ -166,6 +166,19 @@ resource "nutanix_virtual_machine_v2" "vm" {
   }
 
   # NICs (resolves the v1 network_function_chain_reference TODO).
+  #
+  # BOTH halves use the discriminated-union schema. The provider replaced the
+  # flat pair (backing_info / network_info) with nic_backing_info /
+  # nic_network_info, each wrapping a per-NIC-kind block —
+  # virtual_ethernet_nic and virtual_ethernet_nic_network_info here, with
+  # sriov_* and dp_offload_* as the other arms.
+  #
+  # These two MUST move together. Commit e920f93 migrated only the backing half
+  # and left network_info on the deprecated path, producing a mixed NIC payload:
+  # new-style backing, old-style network info. That is not a cosmetic warning —
+  # AHV accepted the VM spec and then failed the CreateVm task at 100% with
+  # "Failed to perform the operation due to an internal error", which names
+  # nothing and is indistinguishable from a cluster fault.
   dynamic "nics" {
     for_each = each.value.nics
     content {
@@ -178,47 +191,49 @@ resource "nutanix_virtual_machine_v2" "vm" {
         }
       }
 
-      network_info {
-        nic_type                  = nics.value.nic_type
-        network_function_nic_type = nics.value.network_function_nic_type
-        vlan_mode                 = nics.value.vlan_mode
+      nic_network_info {
+        virtual_ethernet_nic_network_info {
+          nic_type                  = nics.value.nic_type
+          network_function_nic_type = nics.value.network_function_nic_type
+          vlan_mode                 = nics.value.vlan_mode
 
-        subnet {
-          # subnet_name resolves via the network_topology landing zone's
-          # name map, so config carries "Virtual Machines" rather than a UUID
-          # and the subnet is created before any VM attaches to it.
-          ext_id = (
-            nics.value.subnet_name != null
-            ? local.resolved_subnet_names[nics.value.subnet_name]
-            : nics.value.subnet_ext_id
-          )
-        }
-
-        dynamic "network_function_chain" {
-          for_each = nics.value.network_function_chain_ext_id != null ? [nics.value.network_function_chain_ext_id] : []
-          content {
-            ext_id = network_function_chain.value
+          subnet {
+            # subnet_name resolves via the network_topology landing zone's
+            # name map, so config carries "Virtual Machines" rather than a UUID
+            # and the subnet is created before any VM attaches to it.
+            ext_id = (
+              nics.value.subnet_name != null
+              ? local.resolved_subnet_names[nics.value.subnet_name]
+              : nics.value.subnet_ext_id
+            )
           }
-        }
 
-        dynamic "ipv4_config" {
-          for_each = nics.value.ipv4 != null ? [nics.value.ipv4] : []
-          content {
-            should_assign_ip = ipv4_config.value.should_assign_ip
-
-            dynamic "ip_address" {
-              for_each = ipv4_config.value.ip_address != null ? [ipv4_config.value.ip_address] : []
-              content {
-                value         = ip_address.value.value
-                prefix_length = ip_address.value.prefix_length
-              }
+          dynamic "network_function_chain" {
+            for_each = nics.value.network_function_chain_ext_id != null ? [nics.value.network_function_chain_ext_id] : []
+            content {
+              ext_id = network_function_chain.value
             }
+          }
 
-            dynamic "secondary_ip_address_list" {
-              for_each = ipv4_config.value.secondary_ip_addresses
-              content {
-                value         = secondary_ip_address_list.value.value
-                prefix_length = secondary_ip_address_list.value.prefix_length
+          dynamic "ipv4_config" {
+            for_each = nics.value.ipv4 != null ? [nics.value.ipv4] : []
+            content {
+              should_assign_ip = ipv4_config.value.should_assign_ip
+
+              dynamic "ip_address" {
+                for_each = ipv4_config.value.ip_address != null ? [ipv4_config.value.ip_address] : []
+                content {
+                  value         = ip_address.value.value
+                  prefix_length = ip_address.value.prefix_length
+                }
+              }
+
+              dynamic "secondary_ip_address_list" {
+                for_each = ipv4_config.value.secondary_ip_addresses
+                content {
+                  value         = secondary_ip_address_list.value.value
+                  prefix_length = secondary_ip_address_list.value.prefix_length
+                }
               }
             }
           }
