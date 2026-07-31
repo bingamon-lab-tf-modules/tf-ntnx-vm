@@ -66,6 +66,42 @@ resource "nutanix_images_v2" "image" {
 # Virtual Machines (v2 / v4 API)
 ##################################################
 
+##################################################
+# Cloud-init change detector
+#
+# CLOUD-INIT RUNS ONCE, AT FIRST BOOT. Editing a profile can therefore never
+# affect a RUNNING VM — the only way to apply a new profile is a new VM. This
+# resource makes OpenTofu express that: its input is a hash of the guest
+# customization, so changing the profile changes the hash, and the
+# replace_triggered_by below turns that into a VM replacement.
+#
+# WHY A HASH AND NOT JUST DROPPING ignore_changes. The v4 API does not reliably
+# return cloud-init user-data on read (it is write-mostly), so without
+# ignore_changes the provider compares a base64 string in config against null in
+# state and wants to replace the VM on EVERY plan — including plans where
+# nothing changed. Hashing sidesteps the read entirely: the trigger is derived
+# from config, so it moves only when config moves.
+#
+# Consequence, deliberately: editing a profile DESTROYS AND RECREATES every VM
+# using it. An operator who does not want that should add a NEW profile and a
+# NEW VM rather than editing one in place.
+##################################################
+
+resource "terraform_data" "cloud_init" {
+  for_each = var.virtual_machines
+
+  # jsonencode, not join/coalesce: coalesce rejects EMPTY STRINGS as well as
+  # nulls, so coalesce(null, "") is an error rather than a default — the module
+  # test suite caught exactly that. jsonencode serialises nulls happily and is
+  # deterministic, which is all a change-detector hash needs.
+  input = sha256(jsonencode([
+    each.value.guest_customization_cloud_init_user_data,
+    each.value.guest_customization_cloud_init_metadata,
+    each.value.guest_customization_cloud_init_datasource_type,
+    each.value.guest_customization_sysprep,
+  ]))
+}
+
 resource "nutanix_virtual_machine_v2" "vm" {
   for_each = var.virtual_machines
 
@@ -415,11 +451,19 @@ resource "nutanix_virtual_machine_v2" "vm" {
   }
 
   lifecycle {
+    # guest_customization stays ignored so a write-mostly field cannot produce a
+    # perpetual diff — but it is NOT unmanaged: terraform_data.cloud_init above
+    # hashes it and replace_triggered_by turns a change into a VM replacement,
+    # which is the only thing that can actually apply a new cloud-init.
     ignore_changes = [
       guest_customization,
       cd_roms,
       boot_config[0].uefi_boot[0].boot_order,
       boot_config[0].legacy_boot[0].boot_order,
+    ]
+
+    replace_triggered_by = [
+      terraform_data.cloud_init[each.key],
     ]
   }
 }
