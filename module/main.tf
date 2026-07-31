@@ -130,6 +130,43 @@ resource "nutanix_images_v2" "image" {
 # NEW VM rather than editing one in place.
 ##################################################
 
+# VM disk source change detector
+#
+# CHANGING A DISK'S IMAGE IS A NO-OP ON A LIVE VM, AND THE PROVIDER HIDES IT.
+# data_source.reference.image_reference.image_ext_id is not ForceNew, so
+# repointing a VM at a new image plans as "will be updated in-place":
+#
+#   ~ image_ext_id = "e7daa77a-..." -> "ba7b016b-..."
+#
+# The apply then "succeeds" in about two seconds - nowhere near long enough to
+# re-clone a disk - and the post-apply read comes straight back with the OLD
+# ext_id, because Prism never accepted it. A VM disk is a CLONE, made once at
+# create; there is no operation that re-images it in place.
+#
+# The damage is worse than a no-op. The apply reports success, the VM keeps
+# running the previous image, and the diff reappears on every subsequent plan
+# because state can never converge on a value Prism will not store.
+#
+# Hashing the resolved disk sources and forcing replacement makes repointing a
+# VM at a new image mean what it says: destroy, re-clone, boot the new content.
+resource "terraform_data" "vm_disk_source" {
+  for_each = var.virtual_machines
+
+  # The RESOLVED ext_ids, not the config keys. image_key is stable across an
+  # image rebuild while the ext_id underneath changes, so hashing the key would
+  # miss exactly the case this exists for.
+  input = sha256(jsonencode([
+    for d in each.value.disks : {
+      image = (
+        d.image_key != null
+        ? local.managed_image_ext_ids[d.image_key]
+        : d.image_ext_id
+      )
+      vm_disk = d.source_vm_disk_ext_id
+    }
+  ]))
+}
+
 resource "terraform_data" "cloud_init" {
   for_each = var.virtual_machines
 
@@ -507,6 +544,7 @@ resource "nutanix_virtual_machine_v2" "vm" {
 
     replace_triggered_by = [
       terraform_data.cloud_init[each.key],
+      terraform_data.vm_disk_source[each.key],
     ]
   }
 }
