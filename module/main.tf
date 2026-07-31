@@ -2,6 +2,43 @@
 # Images (v2)
 ##################################################
 
+##################################################
+# Image source change detector
+#
+# THE PROVIDER ACCEPTS A url CHANGE IT CANNOT HONOUR. `source.url_source.url` is
+# not ForceNew, so editing it plans as "will be updated in-place":
+#
+#   ~ url = ".../nkp-bastion.qcow2" -> ".../nkp-bastion-2.18.0-20260731.qcow2"
+#
+# An image's data is materialised ONCE, at create: downloaded, qemu-img
+# converted, and turned into a vdisk. Updating the URL afterwards changes a
+# metadata field and nothing else. Prism never re-downloads.
+#
+# So the apply succeeds, the config claims the new build, and the vdisk is still
+# the old one. Every VM cloned from it silently gets stale content. That is the
+# same shape as the corrupt-image failure that cost a full day of debugging:
+# an image whose metadata and contents disagree.
+#
+# Hashing the source and forcing replacement makes the URL mean what it says.
+#
+# NOTE the cost: replacement is a destroy-then-create, so any VM cloning from
+# this image must be replaced too, and an ImageDelete landing near a VmCreate is
+# itself a known hazard (AHV returns "Unknown volume disk" when a clone source
+# disappears mid-flight). The safer rollout is still a NEW image key alongside
+# the old one, switching the VM over, and dropping the old entry in a later
+# apply. This guard exists so that mutating a URL in place FAILS LOUDLY rather
+# than silently doing nothing - not to make it the recommended path.
+##################################################
+
+resource "terraform_data" "image_source" {
+  for_each = var.images
+
+  # jsonencode over the whole source block: it covers url_source, the object
+  # store key and the vm_disk variant in one, and serialises nulls without the
+  # coalesce trap (coalesce rejects empty strings as well as nulls).
+  input = sha256(jsonencode(each.value.source))
+}
+
 resource "nutanix_images_v2" "image" {
   for_each = var.images
 
@@ -58,6 +95,12 @@ resource "nutanix_images_v2" "image" {
   lifecycle {
     ignore_changes = [
       source[0].url_source[0].should_allow_insecure_url,
+    ]
+
+    # See terraform_data.image_source above: a url edit is an in-place update
+    # the provider cannot actually honour, so force a real create instead.
+    replace_triggered_by = [
+      terraform_data.image_source[each.key],
     ]
   }
 }

@@ -85,3 +85,4 @@ vnuma
 prek
 unevaluable
 sriov
+vdisk
