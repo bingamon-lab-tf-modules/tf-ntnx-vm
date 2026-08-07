@@ -84,3 +84,5 @@ vcpus
 vnuma
 prek
 unevaluable
+sriov
+vdisk

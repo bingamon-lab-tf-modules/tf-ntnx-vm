@@ -53,17 +53,7 @@ output "virtual_machine_nic_list" {
 
 output "virtual_machine_nic_ips" {
   description = "Map of virtual machine keys to their learned NIC IP addresses."
-  value = {
-    for k, v in nutanix_virtual_machine_v2.vm : k => flatten([
-      for nic in v.nics : [
-        for ni in nic.network_info : [
-          for info in ni.ipv4_info : [
-            for addr in info.learned_ip_addresses : addr.value
-          ]
-        ]
-      ]
-    ])
-  }
+  value       = local.vm_nic_ips
 }
 
 ##################################################
@@ -377,17 +367,7 @@ output "outputs" {
     virtual_machine_nic_list = {
       for k, v in nutanix_virtual_machine_v2.vm : k => v.nics
     }
-    virtual_machine_nic_ips = {
-      for k, v in nutanix_virtual_machine_v2.vm : k => flatten([
-        for nic in v.nics : [
-          for ni in nic.network_info : [
-            for info in ni.ipv4_info : [
-              for addr in info.learned_ip_addresses : addr.value
-            ]
-          ]
-        ]
-      ])
-    }
+    virtual_machine_nic_ips = local.vm_nic_ips
     vm_host_affinity_policies = {
       for k, v in nutanix_vm_host_affinity_policy_v2.host_affinity_policy : k => {
         ext_id          = v.ext_id

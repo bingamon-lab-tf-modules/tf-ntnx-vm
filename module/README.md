@@ -80,6 +80,7 @@ were dropped:
 | Name | Version |
 |------|---------|
 | <a name="provider_nutanix"></a> [nutanix](#provider\_nutanix) | 2.4.2 |
+| <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
 ## Modules
 
@@ -109,6 +110,9 @@ No modules.
 | [nutanix_vm_network_device_migrate_v2.nic_migration](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/vm_network_device_migrate_v2) | resource |
 | [nutanix_vm_revert_v2.revert](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/vm_revert_v2) | resource |
 | [nutanix_vm_shutdown_action_v2.shutdown](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/vm_shutdown_action_v2) | resource |
+| [terraform_data.cloud_init](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
+| [terraform_data.image_source](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
+| [terraform_data.vm_disk_source](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [nutanix_categories_v2.category](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/data-sources/categories_v2) | data source |
 | [nutanix_clusters_v2.existing_cluster](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/data-sources/clusters_v2) | data source |
 | [nutanix_images_v2.existing_image](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/data-sources/images_v2) | data source |
