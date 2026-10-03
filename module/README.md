@@ -71,14 +71,14 @@ were dropped:
 ## Requirements
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.10.0 |
 | <a name="requirement_nutanix"></a> [nutanix](#requirement\_nutanix) | >= 2.4.2 |
 
 ## Providers
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="provider_nutanix"></a> [nutanix](#provider\_nutanix) | 2.4.2 |
 | <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
@@ -89,7 +89,7 @@ No modules.
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [nutanix_deploy_templates_v2.template_deployment](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/deploy_templates_v2) | resource |
 | [nutanix_images_v2.image](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/images_v2) | resource |
 | [nutanix_ngt_insert_iso_v2.ngt_iso_insert](https://registry.terraform.io/providers/nutanix/nutanix/latest/docs/resources/ngt_insert_iso_v2) | resource |
@@ -126,7 +126,7 @@ No modules.
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_category_ids"></a> [category\_ids](#input\_category\_ids) | Map of category key => ext\_id, from the security\_governance landing zone's category\_ids output. Referenced by 'category\_keys' on VMs, images and OVA deployments. | `map(string)` | `{}` | no |
 | <a name="input_enable_data_lookups"></a> [enable\_data\_lookups](#input\_enable\_data\_lookups) | Enable read-only lookups of existing Prism Central inventory (clusters, images, VMs, categories, affinity policies). | `bool` | `false` | no |
 | <a name="input_images"></a> [images](#input\_images) | A map of images to manage in Nutanix. | <pre>map(object({<br/>    name        = string<br/>    description = optional(string, null)<br/>    type        = string # DISK_IMAGE, ISO_IMAGE<br/><br/>    source = optional(object({<br/>      url_source = optional(object({<br/>        url                       = string<br/>        should_allow_insecure_url = optional(bool, false)<br/>        basic_auth = optional(object({<br/>          username = string<br/>          password = string<br/>        }), null)<br/>      }), null)<br/>      vm_disk_source = optional(object({<br/>        ext_id = string<br/>      }), null)<br/>      object_lite_source = optional(object({<br/>        key = string<br/>      }), null)<br/>    }), null)<br/><br/>    checksum = optional(object({<br/>      hex_digest  = string<br/>      object_type = optional(string, null)<br/>    }), null)<br/><br/>    category_ext_ids         = optional(list(string), [])<br/>    cluster_location_ext_ids = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
@@ -148,7 +148,7 @@ No modules.
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 | <a name="output_compute_summary"></a> [compute\_summary](#output\_compute\_summary) | Summary of compute resources managed by this module. |
 | <a name="output_existing_cluster_ext_ids"></a> [existing\_cluster\_ext\_ids](#output\_existing\_cluster\_ext\_ids) | Map of existing cluster names to their external IDs (populated when enable\_data\_lookups = true). |
 | <a name="output_existing_image_ext_ids"></a> [existing\_image\_ext\_ids](#output\_existing\_image\_ext\_ids) | Map of existing image names to their external IDs (populated when enable\_data\_lookups = true). |
