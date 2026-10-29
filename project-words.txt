@@ -86,3 +86,8 @@ prek
 unevaluable
 sriov
 vdisk
+SecretSpec
+mktemp
+bingamon
+esac
+secops
