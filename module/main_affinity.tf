@@ -20,7 +20,8 @@ resource "nutanix_vm_host_affinity_policy_v2" "host_affinity_policy" {
 resource "nutanix_vm_anti_affinity_policy_v2" "anti_affinity_policy" {
   for_each = var.vm_anti_affinity_policies
 
-  name        = each.value.name
-  description = each.value.description
-  categories  = toset(each.value.vm_categories)
+  name           = each.value.name
+  description    = each.value.description
+  categories     = toset(each.value.vm_categories)
+  project_ext_id = each.value.project_ext_id
 }

@@ -120,34 +120,38 @@ resource "nutanix_ova_vm_deploy_v2" "ova_deployment" {
     dynamic "nics" {
       for_each = each.value.nics
       content {
-        backing_info {
-          is_connected = nics.value.is_connected
-          model        = nics.value.model
-          mac_address  = nics.value.mac_address
+        nic_backing_info {
+          virtual_ethernet_nic {
+            is_connected = nics.value.is_connected
+            model        = nics.value.model
+            mac_address  = nics.value.mac_address
+          }
         }
 
-        network_info {
-          nic_type  = nics.value.nic_type
-          vlan_mode = nics.value.vlan_mode
+        nic_network_info {
+          virtual_ethernet_nic_network_info {
+            nic_type  = nics.value.nic_type
+            vlan_mode = nics.value.vlan_mode
 
-          subnet {
-            ext_id = (
-              nics.value.subnet_name != null
-              ? local.resolved_subnet_names[nics.value.subnet_name]
-              : nics.value.subnet_ext_id
-            )
-          }
+            subnet {
+              ext_id = (
+                nics.value.subnet_name != null
+                ? local.resolved_subnet_names[nics.value.subnet_name]
+                : nics.value.subnet_ext_id
+              )
+            }
 
-          dynamic "ipv4_config" {
-            for_each = nics.value.ipv4 != null ? [nics.value.ipv4] : []
-            content {
-              should_assign_ip = ipv4_config.value.should_assign_ip
+            dynamic "ipv4_config" {
+              for_each = nics.value.ipv4 != null ? [nics.value.ipv4] : []
+              content {
+                should_assign_ip = ipv4_config.value.should_assign_ip
 
-              dynamic "ip_address" {
-                for_each = ipv4_config.value.ip_address != null ? [ipv4_config.value.ip_address] : []
-                content {
-                  value         = ip_address.value.value
-                  prefix_length = ip_address.value.prefix_length
+                dynamic "ip_address" {
+                  for_each = ipv4_config.value.ip_address != null ? [ipv4_config.value.ip_address] : []
+                  content {
+                    value         = ip_address.value.value
+                    prefix_length = ip_address.value.prefix_length
+                  }
                 }
               }
             }

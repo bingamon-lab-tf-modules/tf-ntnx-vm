@@ -80,9 +80,10 @@ run "anti_affinity_valid" {
   variables {
     vm_anti_affinity_policies = {
       db_ha_pair = {
-        name          = "db-ha-pair"
-        description   = "Keep NDB HA nodes on different hosts"
-        vm_categories = ["33333333-3333-3333-3333-333333333333"]
+        name           = "db-ha-pair"
+        description    = "Keep NDB HA nodes on different hosts"
+        vm_categories  = ["33333333-3333-3333-3333-333333333333"]
+        project_ext_id = "44444444-4444-4444-4444-444444444444"
       }
     }
   }
@@ -100,6 +101,11 @@ run "anti_affinity_valid" {
   assert {
     condition     = contains(output.vm_anti_affinity_policies["db_ha_pair"].categories, "33333333-3333-3333-3333-333333333333")
     error_message = "Expected VM category to be wired onto the anti-affinity policy"
+  }
+
+  assert {
+    condition     = output.vm_anti_affinity_policies["db_ha_pair"].project_ext_id == "44444444-4444-4444-4444-444444444444"
+    error_message = "Expected project_ext_id to be wired onto the anti-affinity policy"
   }
 }
 
