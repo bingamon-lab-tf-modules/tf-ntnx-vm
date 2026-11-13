@@ -48,6 +48,7 @@ resource "nutanix_images_v2" "image" {
 
   category_ext_ids         = length(each.value.category_ext_ids) > 0 ? each.value.category_ext_ids : null
   cluster_location_ext_ids = length(each.value.cluster_location_ext_ids) > 0 ? each.value.cluster_location_ext_ids : null
+  project_ext_id           = each.value.project_ext_id
 
   dynamic "checksum" {
     for_each = each.value.checksum != null ? [each.value.checksum] : []
@@ -79,7 +80,8 @@ resource "nutanix_images_v2" "image" {
       dynamic "vm_disk_source" {
         for_each = source.value.vm_disk_source != null ? [source.value.vm_disk_source] : []
         content {
-          ext_id = vm_disk_source.value.ext_id
+          ext_id    = vm_disk_source.value.ext_id
+          vm_ext_id = vm_disk_source.value.vm_ext_id
         }
       }
 

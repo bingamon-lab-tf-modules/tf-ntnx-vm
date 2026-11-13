@@ -22,11 +22,38 @@ mock_provider "nutanix" {
           expand                   = ""
           inefficient_vm_count     = 0
           links                    = []
-          network                  = []
-          nodes                    = []
-          tenant_id                = ""
-          upgrade_status           = ""
-          vm_count                 = 0
+          network = [
+            {
+              backplane                  = []
+              external_address           = []
+              external_data_services_ip  = []
+              external_subnet            = "10.0.0.0/24"
+              fqdn                       = "cluster.lab.local"
+              http_proxy_list            = []
+              http_proxy_white_list      = []
+              internal_subnet            = "192.168.5.0/24"
+              key_management_server_type = "PRISM_CENTRAL"
+              management_server = [
+                {
+                  ip             = []
+                  is_drs_enabled = true
+                  is_in_use      = true
+                  is_registered  = true
+                  type           = "PRISM_CENTRAL"
+                }
+              ]
+              masquerading_ip       = []
+              masquerading_port     = ""
+              name_server_ip_list   = []
+              nfs_subnet_white_list = []
+              ntp_server_ip_list    = []
+              smtp_server           = []
+            }
+          ]
+          nodes          = []
+          tenant_id      = ""
+          upgrade_status = ""
+          vm_count       = 0
           config = [
             {
               authorized_public_key_list       = []
@@ -226,6 +253,70 @@ run "linux_and_windows_vms" {
   assert {
     condition     = output.compute_summary.cloud_init_vms == 1
     error_message = "Expected 1 cloud-init VM (Linux only)"
+  }
+}
+
+# Image with vm_disk_source (including vm_ext_id), project_ext_id, and basic_auth,
+# plus a LEGACY boot VM with explicit boot_order against v2.5.1 schemas.
+run "v251_image_vm_disk_source_and_legacy_boot" {
+  command = plan
+
+  variables {
+    images = {
+      captured_disk = {
+        name           = "captured-os-disk"
+        type           = "DISK_IMAGE"
+        project_ext_id = "00000000-0000-0000-0000-000000000099"
+        source = {
+          vm_disk_source = {
+            ext_id    = "00000000-0000-0000-0000-000000000050"
+            vm_ext_id = "00000000-0000-0000-0000-000000000051"
+          }
+        }
+      }
+      authenticated_iso = {
+        name = "auth-installer-iso"
+        type = "ISO_IMAGE"
+        source = {
+          url_source = {
+            url = "https://example.com/installer.iso"
+            basic_auth = {
+              username = "iso-reader"
+              password = "iso-secret-password"
+            }
+          }
+        }
+      }
+    }
+    virtual_machines = {
+      legacy_vm = {
+        name           = "legacy-app-01"
+        cluster_ext_id = "00000000-0000-0000-0000-000000000001"
+        boot_type      = "LEGACY"
+        boot_order     = ["DISK", "CDROM", "NETWORK"]
+        disks = [
+          { bus_type = "SCSI", index = 0, image_key = "captured_disk" },
+        ]
+        nics = [
+          { subnet_ext_id = "00000000-0000-0000-0000-000000000002" },
+        ]
+      }
+    }
+  }
+
+  assert {
+    condition     = output.images["captured_disk"].project_ext_id == "00000000-0000-0000-0000-000000000099"
+    error_message = "Expected project_ext_id on captured_disk image"
+  }
+
+  assert {
+    condition     = output.compute_summary.iso_images == 1
+    error_message = "Expected 1 ISO image"
+  }
+
+  assert {
+    condition     = output.compute_summary.total_virtual_machines == 1
+    error_message = "Expected 1 legacy-boot VM"
   }
 }
 

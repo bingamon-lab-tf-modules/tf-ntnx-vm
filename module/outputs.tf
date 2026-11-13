@@ -6,10 +6,12 @@ output "images" {
   description = "Map of created images with their details."
   value = {
     for k, v in nutanix_images_v2.image : k => {
-      ext_id     = v.ext_id
-      name       = v.name
-      type       = v.type
-      size_bytes = v.size_bytes
+      ext_id                  = v.ext_id
+      name                    = v.name
+      type                    = v.type
+      size_bytes              = v.size_bytes
+      project_ext_id          = v.project_ext_id
+      share_with_all_projects = v.share_with_all_projects
     }
   }
 }
@@ -81,9 +83,10 @@ output "vm_anti_affinity_policies" {
   description = "Map of created VM anti-affinity policies with their details."
   value = {
     for k, v in nutanix_vm_anti_affinity_policy_v2.anti_affinity_policy : k => {
-      ext_id     = v.ext_id
-      name       = v.name
-      categories = v.categories
+      ext_id         = v.ext_id
+      name           = v.name
+      categories     = v.categories
+      project_ext_id = v.project_ext_id
     }
   }
 }
@@ -344,10 +347,12 @@ output "outputs" {
   value = {
     images = {
       for k, v in nutanix_images_v2.image : k => {
-        ext_id     = v.ext_id
-        name       = v.name
-        type       = v.type
-        size_bytes = v.size_bytes
+        ext_id                  = v.ext_id
+        name                    = v.name
+        type                    = v.type
+        size_bytes              = v.size_bytes
+        project_ext_id          = v.project_ext_id
+        share_with_all_projects = v.share_with_all_projects
       }
     }
     image_ids = { for k, v in nutanix_images_v2.image : k => v.ext_id }
@@ -379,9 +384,10 @@ output "outputs" {
     vm_host_affinity_policy_ids = { for k, v in nutanix_vm_host_affinity_policy_v2.host_affinity_policy : k => v.ext_id }
     vm_anti_affinity_policies = {
       for k, v in nutanix_vm_anti_affinity_policy_v2.anti_affinity_policy : k => {
-        ext_id     = v.ext_id
-        name       = v.name
-        categories = v.categories
+        ext_id         = v.ext_id
+        name           = v.name
+        categories     = v.categories
+        project_ext_id = v.project_ext_id
       }
     }
     vm_anti_affinity_policy_ids = { for k, v in nutanix_vm_anti_affinity_policy_v2.anti_affinity_policy : k => v.ext_id }

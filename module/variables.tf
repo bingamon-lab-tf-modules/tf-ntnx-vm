@@ -19,7 +19,8 @@ variable "images" {
         }), null)
       }), null)
       vm_disk_source = optional(object({
-        ext_id = string
+        ext_id    = string
+        vm_ext_id = optional(string, null)
       }), null)
       object_lite_source = optional(object({
         key = string
@@ -33,6 +34,7 @@ variable "images" {
 
     category_ext_ids         = optional(list(string), [])
     cluster_location_ext_ids = optional(list(string), [])
+    project_ext_id           = optional(string, null)
   }))
   default = {}
 
@@ -366,9 +368,10 @@ variable "vm_host_affinity_policies" {
 variable "vm_anti_affinity_policies" {
   description = "A map of VM anti-affinity policies (nutanix_vm_anti_affinity_policy_v2) that keep VMs apart via categories."
   type = map(object({
-    name          = string
-    description   = optional(string, null)
-    vm_categories = list(string) # category external IDs selecting the VMs
+    name           = string
+    description    = optional(string, null)
+    vm_categories  = list(string) # category external IDs selecting the VMs
+    project_ext_id = optional(string, null)
   }))
   default = {}
 

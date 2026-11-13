@@ -93,6 +93,10 @@ run "ova_created" {
         source = {
           url_source = {
             url = "https://example.com/appliance.ova"
+            basic_auth = {
+              username = "ova-reader"
+              password = "ova-secret-password"
+            }
           }
         }
       }
@@ -128,6 +132,10 @@ run "deployment_resolves_module_ova" {
         source = {
           url_source = {
             url = "https://example.com/appliance.ova"
+            basic_auth = {
+              username = "ova-reader"
+              password = "ova-secret-password"
+            }
           }
         }
       }
@@ -198,6 +206,10 @@ run "download_resolves_module_ova" {
         source = {
           url_source = {
             url = "https://example.com/appliance.ova"
+            basic_auth = {
+              username = "ova-reader"
+              password = "ova-secret-password"
+            }
           }
         }
       }
