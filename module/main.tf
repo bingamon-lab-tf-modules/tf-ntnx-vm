@@ -203,6 +203,7 @@ resource "nutanix_virtual_machine_v2" "vm" {
   hardware_clock_timezone      = each.value.hardware_clock_timezone
   is_vga_console_enabled       = each.value.is_vga_console_enabled
   is_cpu_passthrough_enabled   = each.value.is_cpu_passthrough_enabled
+  enabled_cpu_features         = each.value.enabled_cpu_features
   is_vcpu_hard_pinning_enabled = each.value.is_vcpu_hard_pinning_enabled
   is_cpu_hotplug_enabled       = each.value.is_cpu_hotplug_enabled
   is_memory_overcommit_enabled = each.value.is_memory_overcommit_enabled

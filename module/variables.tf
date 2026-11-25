@@ -108,10 +108,11 @@ variable "virtual_machines" {
     power_state                  = optional(string, "ON")
     machine_type                 = optional(string, null)
     hardware_clock_timezone      = optional(string, null)
-    is_vga_console_enabled       = optional(bool, null) # was vga_console_enabled
-    is_cpu_passthrough_enabled   = optional(bool, null) # was enable_cpu_passthrough
-    is_vcpu_hard_pinning_enabled = optional(bool, null) # was is_vcpu_hard_pinned
-    is_cpu_hotplug_enabled       = optional(bool, null) # v2-native (see migration notes re: use_hot_add)
+    is_vga_console_enabled       = optional(bool, null)         # was vga_console_enabled
+    is_cpu_passthrough_enabled   = optional(bool, null)         # was enable_cpu_passthrough
+    enabled_cpu_features         = optional(list(string), null) # e.g. ["HARDWARE_VIRTUALIZATION"] for nested virtualization
+    is_vcpu_hard_pinning_enabled = optional(bool, null)         # was is_vcpu_hard_pinned
+    is_cpu_hotplug_enabled       = optional(bool, null)         # v2-native (see migration notes re: use_hot_add)
     is_memory_overcommit_enabled = optional(bool, null)
 
     # Categories: v2 associates categories by external ID (was name/value pairs).
@@ -259,6 +260,22 @@ variable "virtual_machines" {
       v.machine_type == null || contains(["PC", "PSERIES", "Q35"], v.machine_type)
     ])
     error_message = "VM 'machine_type' must be one of: PC, PSERIES, Q35."
+  }
+
+  # Provider v2.5.1 expandCPUFeature() does an unchecked map lookup and panics on
+  # unknown values; restrict entries to the supported v4 CpuFeature enum.
+  validation {
+    condition = alltrue([
+      for k, v in var.virtual_machines :
+      v.enabled_cpu_features == null ? true : (
+        length(v.enabled_cpu_features) == length(distinct(v.enabled_cpu_features)) &&
+        alltrue([
+          for f in v.enabled_cpu_features :
+          contains(["HARDWARE_VIRTUALIZATION"], f)
+        ])
+      )
+    ])
+    error_message = "VM 'enabled_cpu_features' entries must be unique and one of: HARDWARE_VIRTUALIZATION."
   }
   validation {
     condition = alltrue(flatten([

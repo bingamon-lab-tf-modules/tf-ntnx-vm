@@ -414,3 +414,72 @@ run "invalid_boot_type_fails" {
 
   expect_failures = [var.virtual_machines]
 }
+
+# Valid enabled_cpu_features (HARDWARE_VIRTUALIZATION and empty list) plan cleanly
+# and forward the configured list to nutanix_virtual_machine_v2.
+run "enabled_cpu_features_valid" {
+  command = plan
+
+  variables {
+    virtual_machines = {
+      nested = {
+        name                 = "nested-vm-01"
+        cluster_ext_id       = "00000000-0000-0000-0000-000000000001"
+        enabled_cpu_features = ["HARDWARE_VIRTUALIZATION"]
+        nics                 = [{ subnet_ext_id = "00000000-0000-0000-0000-000000000002" }]
+      }
+      cleared = {
+        name                 = "no-cpu-features-01"
+        cluster_ext_id       = "00000000-0000-0000-0000-000000000001"
+        enabled_cpu_features = []
+        nics                 = [{ subnet_ext_id = "00000000-0000-0000-0000-000000000002" }]
+      }
+    }
+  }
+
+  assert {
+    condition     = nutanix_virtual_machine_v2.vm["nested"].enabled_cpu_features == tolist(["HARDWARE_VIRTUALIZATION"])
+    error_message = "Expected enabled_cpu_features = [\"HARDWARE_VIRTUALIZATION\"] on nested VM"
+  }
+
+  assert {
+    condition     = length(nutanix_virtual_machine_v2.vm["cleared"].enabled_cpu_features) == 0
+    error_message = "Expected empty enabled_cpu_features list on cleared VM"
+  }
+}
+
+# An unknown enabled_cpu_features entry must fail variable validation (provider panics otherwise).
+run "invalid_enabled_cpu_features_fails" {
+  command = plan
+
+  variables {
+    virtual_machines = {
+      bad = {
+        name                 = "bad"
+        cluster_ext_id       = "00000000-0000-0000-0000-000000000001"
+        enabled_cpu_features = ["UNKNOWN_FEATURE"]
+        nics                 = [{ subnet_ext_id = "00000000-0000-0000-0000-000000000002" }]
+      }
+    }
+  }
+
+  expect_failures = [var.virtual_machines]
+}
+
+# Duplicate enabled_cpu_features entries must fail variable validation.
+run "duplicate_enabled_cpu_features_fails" {
+  command = plan
+
+  variables {
+    virtual_machines = {
+      bad = {
+        name                 = "bad"
+        cluster_ext_id       = "00000000-0000-0000-0000-000000000001"
+        enabled_cpu_features = ["HARDWARE_VIRTUALIZATION", "HARDWARE_VIRTUALIZATION"]
+        nics                 = [{ subnet_ext_id = "00000000-0000-0000-0000-000000000002" }]
+      }
+    }
+  }
+
+  expect_failures = [var.virtual_machines]
+}
